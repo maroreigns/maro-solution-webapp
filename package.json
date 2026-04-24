@@ -1,0 +1,11 @@
+{
+  "name": "maro-solution",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:backend": "npm install --prefix backend",
+    "dev": "npm run dev --prefix backend",
+    "start": "npm run start --prefix backend",
+    "seed": "npm run seed --prefix backend"
+  }
+}

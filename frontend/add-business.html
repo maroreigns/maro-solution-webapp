@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maro Solution | Add Business</title>
+    <meta
+      name="description"
+      content="Add your service business to Maro Solution so more customers across Nigeria can discover and contact you on WhatsApp."
+    />
+    <link rel="stylesheet" href="./styles/main.css" />
+  </head>
+  <body data-page="add-business">
+    <header class="site-header">
+      <div class="container nav-shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">M</span>
+          <span class="brand-text">
+            <strong>Maro Solution</strong>
+            <small>Nigeria's service directory</small>
+          </span>
+        </a>
+
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <nav class="site-nav" id="site-nav">
+          <a href="./index.html">Home</a>
+          <a href="./listings.html">Listings</a>
+          <a href="./add-business.html">Add Business</a>
+          <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <span aria-hidden="true">◐</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <section class="section">
+        <div class="container form-layout">
+          <div class="form-intro">
+            <span class="eyebrow">Get discovered</span>
+            <h1>Add your business to Maro Solution</h1>
+            <p>Fill in your details once and let people nearby find you, trust you, and message you on WhatsApp.</p>
+            <div class="info-card card">
+              <h2>Why join?</h2>
+              <ul>
+                <li>Reach customers searching by category, state, and local government.</li>
+                <li>Receive direct WhatsApp enquiries with one click.</li>
+                <li>Show your experience, location, and social presence clearly.</li>
+              </ul>
+            </div>
+          </div>
+
+          <form class="business-form card" id="business-form" enctype="multipart/form-data">
+            <div class="form-feedback" id="form-feedback" hidden></div>
+
+            <label>
+              Full name or business name
+              <input type="text" name="name" placeholder="Full name or business name" required />
+            </label>
+
+            <label>
+              Service category
+              <select name="category" id="business-category" required>
+                <option value="">Select category</option>
+              </select>
+            </label>
+
+            <div class="form-row">
+              <label>
+                State
+                <select name="state" id="business-state" required>
+                  <option value="">Select state</option>
+                </select>
+              </label>
+              <label>
+                Local Government
+                <select name="localGovernment" id="business-local-government" required>
+                  <option value="">Select local government</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Phone number
+                <input type="tel" name="phone" placeholder="+234 800 000 0000" required />
+              </label>
+            </div>
+
+            <label>
+              Address or nearby location
+              <input type="text" name="address" placeholder="Street, area, landmark, or nearby location" required />
+            </label>
+
+            <div class="form-row">
+              <label>
+                Years of experience
+                <input type="number" name="yearsExperience" min="0" max="80" placeholder="5" required />
+              </label>
+            </div>
+
+            <label>
+              Profile picture upload
+              <input type="file" name="profileImage" id="profile-image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+            </label>
+
+            <div class="image-preview" id="image-preview">No image selected yet.</div>
+
+            <button class="button button-primary" type="submit" id="submit-button">Add Business</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div>
+          <h3>Maro Solution</h3>
+          <p>Helping people discover trusted local service providers across Nigeria.</p>
+        </div>
+        <div class="footer-links">
+          <a href="./index.html">Home</a>
+          <a href="./listings.html">Listings</a>
+          <a href="./add-business.html">Add Business</a>
+          <a href="https://facebook.com" target="_blank" rel="noreferrer">Facebook</a>
+          <a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram</a>
+        </div>
+        <p class="copyright">Copyright <span id="current-year"></span> Maro Solution. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="./scripts/data.js"></script>
+    <script src="./scripts/config.js"></script>
+    <script src="./scripts/main.js"></script>
+  </body>
+  </html>

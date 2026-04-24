@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maro Solution | Find trusted service providers near you</title>
+    <meta
+      name="description"
+      content="Find trusted service providers across Nigeria and connect with them on WhatsApp through Maro Solution."
+    />
+    <link rel="stylesheet" href="./styles/main.css" />
+  </head>
+  <body data-page="home">
+    <header class="site-header">
+      <div class="container nav-shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">M</span>
+          <span class="brand-text">
+            <strong>Maro Solution</strong>
+            <small>Nigeria's service directory</small>
+          </span>
+        </a>
+
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <nav class="site-nav" id="site-nav">
+          <a href="./index.html">Home</a>
+          <a href="./listings.html">Listings</a>
+          <a href="./add-business.html">Add Business</a>
+          <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <span aria-hidden="true">◐</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <span class="eyebrow">Trusted local connections</span>
+            <h1>Find trusted service providers near you</h1>
+            <p>
+              Connect with plumbers, mechanics, electricians, cleaners, cooks, and many more professionals across Nigeria.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="./add-business.html">Add Your Business</a>
+              <a class="button button-secondary" href="./listings.html">Browse Listings</a>
+            </div>
+          </div>
+
+          <div class="hero-panel card">
+            <h2>Search across Nigeria</h2>
+            <form class="search-form" id="hero-search-form">
+              <label>
+                Category
+                <select name="category" id="hero-category">
+                  <option value="">All categories</option>
+                </select>
+              </label>
+              <label>
+                State
+                <select name="state" id="hero-state">
+                  <option value="">All states</option>
+                </select>
+              </label>
+              <label>
+                Local Government
+                <select name="localGovernment" id="hero-local-government">
+                  <option value="">All local governments</option>
+                </select>
+              </label>
+              <button class="button button-primary" type="submit">Search</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Featured categories</span>
+              <h2>Popular services people search for</h2>
+            </div>
+            <a href="./listings.html" class="text-link">See all listings</a>
+          </div>
+          <div class="chip-grid" id="featured-categories"></div>
+        </div>
+      </section>
+
+      <section class="section section-tint">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Featured providers</span>
+              <h2>Professionals ready to help</h2>
+            </div>
+          </div>
+          <div class="status-message" id="featured-loading">Loading featured providers...</div>
+          <div class="provider-grid" id="featured-businesses"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container cta-banner">
+          <div>
+            <span class="eyebrow">Grow your reach</span>
+            <h2>Let customers across Nigeria find and contact your business faster.</h2>
+          </div>
+          <a class="button button-primary" href="./add-business.html">Add Your Business</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div>
+          <h3>Maro Solution</h3>
+          <p>Helping people discover trusted local service providers across Nigeria.</p>
+        </div>
+        <div class="footer-links">
+          <a href="./index.html">Home</a>
+          <a href="./listings.html">Listings</a>
+          <a href="./add-business.html">Add Business</a>
+          <a href="https://facebook.com" target="_blank" rel="noreferrer">Facebook</a>
+          <a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram</a>
+        </div>
+        <p class="copyright">Copyright <span id="current-year"></span> Maro Solution. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="./scripts/data.js"></script>
+    <script src="./scripts/config.js"></script>
+    <script src="./scripts/main.js"></script>
+  </body>
+  </html>
