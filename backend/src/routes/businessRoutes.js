@@ -32,14 +32,14 @@ function requireAdminDeleteToken(req, res, next) {
   const configuredToken = process.env.ADMIN_DELETE_TOKEN;
   const providedToken = req.get('x-admin-token');
 
-  if (!providedToken) {
-    return res.status(401).json({
+  if (!configuredToken) {
+    return res.status(500).json({
       success: false,
-      message: 'Admin token is required.',
+      message: 'ADMIN_DELETE_TOKEN is not configured on the server.',
     });
   }
 
-  if (!configuredToken || providedToken !== configuredToken) {
+  if (!providedToken || providedToken !== configuredToken) {
     return res.status(403).json({
       success: false,
       message: 'Invalid admin token.',

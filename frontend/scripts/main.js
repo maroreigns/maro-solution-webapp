@@ -653,7 +653,7 @@
         return;
       }
 
-      const shouldDelete = window.confirm('Delete this business?');
+      const shouldDelete = window.confirm('Are you sure you want to delete this business?');
       if (!shouldDelete) {
         return;
       }
