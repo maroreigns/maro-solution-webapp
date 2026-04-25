@@ -40,9 +40,24 @@ const businessSchema = new mongoose.Schema(
     },
     rating: {
       type: Number,
-      default: 4.5,
       min: 0,
       max: 5,
+    },
+    ratingAverage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    ratingCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    ratingTotal: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     yearsExperience: {
       type: Number,

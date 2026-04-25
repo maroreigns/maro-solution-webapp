@@ -63,10 +63,6 @@ const businessValidationRules = [
     .withMessage('Years of experience is required.')
     .isInt({ min: 0, max: 80 })
     .withMessage('Years of experience must be a whole number between 0 and 80.'),
-  body('rating')
-    .optional({ values: 'falsy' })
-    .isFloat({ min: 0, max: 5 })
-    .withMessage('Rating must be between 0 and 5.'),
 ];
 
 function handleValidationResult(req, res, next) {

@@ -4,6 +4,7 @@ const {
   deleteBusiness,
   getBusinessById,
   getBusinesses,
+  rateBusiness,
   updateBusiness,
 } = require('../controllers/businessController');
 const { upload } = require('../middleware/upload');
@@ -38,6 +39,8 @@ router
     handleValidationResult,
     createBusiness
   );
+
+router.post('/:id/rate', sanitizeRequestBody, rateBusiness);
 
 router
   .route('/:id')

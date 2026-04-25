@@ -142,6 +142,67 @@
     }).join('');
   }
 
+  function getBusinessId(business) {
+    return business && (business._id || business.id || '');
+  }
+
+  function getRatingStorageKey(businessId) {
+    return 'maro-rated-business-' + businessId;
+  }
+
+  function hasRatedBusiness(businessId) {
+    return Boolean(businessId && localStorage.getItem(getRatingStorageKey(businessId)));
+  }
+
+  function formatRatingSummary(ratingAverage, ratingCount) {
+    const count = Number(ratingCount) || 0;
+
+    if (!count) {
+      return 'No ratings yet';
+    }
+
+    return (
+      Number(ratingAverage || 0).toFixed(1) +
+      '/5 (' +
+      count +
+      ' customer rating' +
+      (count === 1 ? '' : 's') +
+      ')'
+    );
+  }
+
+  function createRatingControls(business) {
+    const businessId = getBusinessId(business);
+    const ratingAverage = Number(business.ratingAverage) || 0;
+    const ratingCount = Number(business.ratingCount) || 0;
+    const alreadyRated = hasRatedBusiness(businessId);
+    const buttons = Array.from({ length: 5 }, function (_, index) {
+      const ratingValue = index + 1;
+      return (
+        '<button class="rating-star" type="button" data-rating-value="' +
+        ratingValue +
+        '" aria-label="Rate ' +
+        escapeHtml(business.name) +
+        ' ' +
+        ratingValue +
+        ' out of 5"' +
+        (alreadyRated ? ' disabled' : '') +
+        '>' +
+        (ratingValue <= Math.round(ratingAverage) ? '&#9733;' : '&#9734;') +
+        '</button>'
+      );
+    }).join('');
+
+    return [
+      '<div class="rating" data-rating-business-id="' + escapeHtml(businessId) + '">',
+      '  <span class="stars" aria-hidden="true">' + createStars(ratingAverage) + '</span>',
+      '  <span class="rating-summary">' + formatRatingSummary(ratingAverage, ratingCount) + '</span>',
+      '  <div class="rating-actions" aria-label="Submit a customer rating">' + buttons + '</div>',
+      '  <span class="rating-feedback" aria-live="polite"></span>',
+      '</div>',
+    ].join('');
+  }
+
   function normalizeWhatsapp(value) {
     return String(value || '').replace(/[^\d]/g, '');
   }
@@ -215,11 +276,7 @@
       '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
       '    <span><strong>Experience:</strong> ' + escapeHtml(String(business.yearsExperience)) + ' years</span>',
       '  </div>',
-      '  <div class="rating"><span class="stars">' +
-        createStars(business.rating) +
-        '</span><span>' +
-        Number(business.rating || 0).toFixed(1) +
-        '/5</span></div>',
+      '  ' + createRatingControls(business),
       '  <div class="provider-actions">',
       '    <a class="button button-whatsapp" target="_blank" rel="noreferrer" href="https://wa.me/' +
         normalizeWhatsapp(business.phone) +
@@ -260,6 +317,100 @@
     }
 
     return payload.data || [];
+  }
+
+  async function submitBusinessRating(businessId, ratingValue) {
+    const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId) + '/rate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ rating: ratingValue }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to submit rating.');
+    }
+
+    return payload;
+  }
+
+  function updateRatingNode(ratingNode, ratingData, message) {
+    const ratingAverage = Number(ratingData.ratingAverage) || 0;
+    const ratingCount = Number(ratingData.ratingCount) || 0;
+    const starsNode = ratingNode.querySelector('.stars');
+    const summaryNode = ratingNode.querySelector('.rating-summary');
+    const feedbackNode = ratingNode.querySelector('.rating-feedback');
+
+    if (starsNode) {
+      starsNode.innerHTML = createStars(ratingAverage);
+    }
+
+    if (summaryNode) {
+      summaryNode.textContent = formatRatingSummary(ratingAverage, ratingCount);
+    }
+
+    ratingNode.querySelectorAll('.rating-star').forEach(function (button, index) {
+      button.disabled = true;
+      button.innerHTML = index < Math.round(ratingAverage) ? '&#9733;' : '&#9734;';
+    });
+
+    if (feedbackNode) {
+      feedbackNode.textContent = message || '';
+      feedbackNode.classList.toggle('error', false);
+    }
+  }
+
+  function setupRatingClicks() {
+    document.addEventListener('click', async function (event) {
+      const starButton = event.target.closest('.rating-star');
+
+      if (!starButton) {
+        return;
+      }
+
+      const ratingNode = starButton.closest('[data-rating-business-id]');
+      const feedbackNode = ratingNode ? ratingNode.querySelector('.rating-feedback') : null;
+      const businessId = ratingNode ? ratingNode.dataset.ratingBusinessId : '';
+      const ratingValue = Number(starButton.dataset.ratingValue);
+
+      if (!ratingNode || !businessId || !Number.isFinite(ratingValue)) {
+        return;
+      }
+
+      if (hasRatedBusiness(businessId)) {
+        if (feedbackNode) {
+          feedbackNode.textContent = 'You already rated this provider.';
+          feedbackNode.classList.add('error');
+        }
+        return;
+      }
+
+      ratingNode.querySelectorAll('.rating-star').forEach(function (button) {
+        button.disabled = true;
+      });
+
+      if (feedbackNode) {
+        feedbackNode.textContent = 'Submitting...';
+        feedbackNode.classList.remove('error');
+      }
+
+      try {
+        const payload = await submitBusinessRating(businessId, ratingValue);
+        localStorage.setItem(getRatingStorageKey(businessId), String(ratingValue));
+        updateRatingNode(ratingNode, payload.data || {}, payload.message || 'Thanks for rating.');
+      } catch (error) {
+        ratingNode.querySelectorAll('.rating-star').forEach(function (button) {
+          button.disabled = false;
+        });
+
+        if (feedbackNode) {
+          feedbackNode.textContent = error.message;
+          feedbackNode.classList.add('error');
+        }
+      }
+    });
   }
 
   function initializeHomePage() {
@@ -470,6 +621,7 @@
   }
 
   initializeSharedUi();
+  setupRatingClicks();
 
   if (page === 'home') {
     initializeHomePage();

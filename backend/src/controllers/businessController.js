@@ -89,7 +89,6 @@ const createBusiness = asyncHandler(async (req, res) => {
     phone: req.body.phone,
     address: req.body.address,
     profileImage: buildImagePath(req.file),
-    rating: req.body.rating || 4.5,
     yearsExperience: Number(req.body.yearsExperience),
   });
 
@@ -127,7 +126,6 @@ const updateBusiness = asyncHandler(async (req, res) => {
   business.phone = req.body.phone;
   business.address = req.body.address;
   business.profileImage = newProfileImage;
-  business.rating = req.body.rating || business.rating;
   business.yearsExperience = Number(req.body.yearsExperience);
 
   await business.save();
@@ -161,10 +159,48 @@ const deleteBusiness = asyncHandler(async (req, res) => {
   });
 });
 
+const rateBusiness = asyncHandler(async (req, res) => {
+  const rating = req.body.rating;
+
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({
+      success: false,
+      message: 'Rating must be a number between 1 and 5.',
+    });
+  }
+
+  const business = await Business.findById(req.params.id);
+
+  if (!business) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found.',
+    });
+  }
+
+  business.ratingTotal = (Number(business.ratingTotal) || 0) + rating;
+  business.ratingCount = (Number(business.ratingCount) || 0) + 1;
+  business.ratingAverage = Number((business.ratingTotal / business.ratingCount).toFixed(2));
+
+  await business.save();
+
+  res.json({
+    success: true,
+    message: 'Thanks for rating.',
+    data: {
+      _id: business._id,
+      ratingAverage: business.ratingAverage,
+      ratingCount: business.ratingCount,
+      ratingTotal: business.ratingTotal,
+    },
+  });
+});
+
 module.exports = {
   createBusiness,
   deleteBusiness,
   getBusinessById,
   getBusinesses,
+  rateBusiness,
   updateBusiness,
 };
