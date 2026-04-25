@@ -21,6 +21,7 @@
   };
   const whatsappMessage =
     'Hello, I need your service. I am messaging you from Maro Solution website.';
+  const adminTokenStorageKey = 'maro-admin-delete-token';
 
   function initializeSharedUi() {
     setupTheme();
@@ -155,6 +156,14 @@
     return Boolean(businessId && localStorage.getItem(getRatingStorageKey(businessId)));
   }
 
+  function getSavedAdminToken() {
+    return sessionStorage.getItem(adminTokenStorageKey) || '';
+  }
+
+  function isAdminDeleteEnabled() {
+    return page === 'listings' && Boolean(getSavedAdminToken());
+  }
+
   function formatRatingSummary(ratingAverage, ratingCount) {
     const count = Number(ratingCount) || 0;
 
@@ -270,6 +279,20 @@
       .replace(/'/g, '&#39;');
   }
 
+  function createAdminDeleteButton(business) {
+    const businessId = getBusinessId(business);
+
+    if (!isAdminDeleteEnabled() || !businessId) {
+      return '';
+    }
+
+    return (
+      '<button class="button button-danger admin-delete-button" type="button" data-delete-business-id="' +
+      escapeHtml(businessId) +
+      '">Delete</button>'
+    );
+  }
+
   function createProviderCard(business) {
     const profileMarkup = business.profileImage
       ? '<img src="' + resolveAssetUrl(business.profileImage) + '" alt="' + escapeHtml(business.name) + ' profile picture" />'
@@ -300,6 +323,7 @@
         '?text=' +
         encodeURIComponent(whatsappMessage) +
         '">WhatsApp</a>',
+      '    ' + createAdminDeleteButton(business),
       '  </div>',
       '</article>',
     ].join('');
@@ -348,6 +372,22 @@
 
     if (!response.ok) {
       throw new Error(payload.message || 'Unable to submit rating.');
+    }
+
+    return payload;
+  }
+
+  async function deleteBusiness(businessId, adminToken) {
+    const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId), {
+      method: 'DELETE',
+      headers: {
+        'x-admin-token': adminToken,
+      },
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to delete business.');
     }
 
     return payload;
@@ -498,6 +538,7 @@
     const resultsMeta = document.getElementById('results-meta');
     const listingsGrid = document.getElementById('listings-grid');
     const resetButton = document.getElementById('reset-filters');
+    const adminToggle = document.getElementById('admin-toggle');
     const searchParams = new URLSearchParams(window.location.search);
 
     populateSelect(categorySelect, appData.businessCategories, 'All categories');
@@ -554,6 +595,14 @@
       }
     }
 
+    function refreshAdminButton() {
+      if (!adminToggle) {
+        return;
+      }
+
+      adminToggle.textContent = isAdminDeleteEnabled() ? 'Admin On' : 'Admin';
+    }
+
     filterForm.addEventListener('submit', function (event) {
       event.preventDefault();
       runSearch();
@@ -565,6 +614,64 @@
       runSearch();
     });
 
+    if (adminToggle) {
+      adminToggle.addEventListener('click', function () {
+        const currentToken = getSavedAdminToken();
+
+        if (currentToken) {
+          const shouldDisable = window.confirm('Disable admin delete mode?');
+          if (shouldDisable) {
+            sessionStorage.removeItem(adminTokenStorageKey);
+            refreshAdminButton();
+            runSearch();
+          }
+          return;
+        }
+
+        const token = window.prompt('Enter admin delete token');
+        if (!token) {
+          return;
+        }
+
+        sessionStorage.setItem(adminTokenStorageKey, token.trim());
+        refreshAdminButton();
+        runSearch();
+      });
+    }
+
+    listingsGrid.addEventListener('click', async function (event) {
+      const deleteButton = event.target.closest('.admin-delete-button');
+
+      if (!deleteButton) {
+        return;
+      }
+
+      const businessId = deleteButton.dataset.deleteBusinessId;
+      const adminToken = getSavedAdminToken();
+
+      if (!businessId || !adminToken) {
+        return;
+      }
+
+      const shouldDelete = window.confirm('Delete this business?');
+      if (!shouldDelete) {
+        return;
+      }
+
+      deleteButton.disabled = true;
+      deleteButton.textContent = 'Deleting...';
+
+      try {
+        await deleteBusiness(businessId, adminToken);
+        await runSearch();
+      } catch (error) {
+        window.alert(error.message);
+        deleteButton.disabled = false;
+        deleteButton.textContent = 'Delete';
+      }
+    });
+
+    refreshAdminButton();
     runSearch();
   }
 

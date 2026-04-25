@@ -300,6 +300,12 @@ body.dark-mode .site-header {
   box-shadow: var(--shadow);
 }
 
+.button-danger {
+  color: #fff;
+  background: linear-gradient(135deg, #e64f4f, #b13333);
+  box-shadow: var(--shadow);
+}
+
 .card,
 .cta-banner {
   border: 1px solid var(--border);

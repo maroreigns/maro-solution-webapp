@@ -28,6 +28,27 @@ const formSubmissionLimiter = rateLimit({
   },
 });
 
+function requireAdminDeleteToken(req, res, next) {
+  const configuredToken = process.env.ADMIN_DELETE_TOKEN;
+  const providedToken = req.get('x-admin-token');
+
+  if (!providedToken) {
+    return res.status(401).json({
+      success: false,
+      message: 'Admin token is required.',
+    });
+  }
+
+  if (!configuredToken || providedToken !== configuredToken) {
+    return res.status(403).json({
+      success: false,
+      message: 'Invalid admin token.',
+    });
+  }
+
+  return next();
+}
+
 router
   .route('/')
   .get(getBusinesses)
@@ -53,6 +74,6 @@ router
     handleValidationResult,
     updateBusiness
   )
-  .delete(deleteBusiness);
+  .delete(requireAdminDeleteToken, deleteBusiness);
 
 module.exports = { businessRoutes: router };
