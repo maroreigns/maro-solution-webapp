@@ -13,6 +13,7 @@
       : '';
   const apiBaseUrl = normalizeApiBaseUrl(configuredApiBaseUrl || '/api/businesses');
   const apiOrigin = getApiOrigin(apiBaseUrl);
+  const assetBaseUrl = getAssetBaseUrl(configuredApiBaseUrl || apiBaseUrl);
   const pagePaths = {
     home: './index.html',
     listings: './listings.html',
@@ -228,6 +229,18 @@
     }
   }
 
+  function getAssetBaseUrl(url) {
+    try {
+      const parsedUrl = new URL(url, window.location.origin);
+      parsedUrl.pathname = parsedUrl.pathname.replace(/\/api(?:\/businesses)?\/?$/, '');
+      parsedUrl.search = '';
+      parsedUrl.hash = '';
+      return parsedUrl.toString().replace(/\/$/, '');
+    } catch (error) {
+      return window.location.origin;
+    }
+  }
+
   function resolveAssetUrl(assetPath) {
     if (!assetPath) {
       return '';
@@ -235,6 +248,10 @@
 
     if (/^https?:\/\//i.test(assetPath)) {
       return assetPath;
+    }
+
+    if (assetPath.startsWith('/uploads')) {
+      return assetBaseUrl + assetPath;
     }
 
     if (assetPath.startsWith('/')) {
