@@ -9,11 +9,15 @@ function buildImagePath(file) {
     return '';
   }
 
+  if (file.path) {
+    return file.path;
+  }
+
   return `/uploads/${file.filename}`;
 }
 
 function cleanupUploadedFile(filePath) {
-  if (!filePath) {
+  if (!filePath || /^https?:\/\//i.test(filePath)) {
     return;
   }
 

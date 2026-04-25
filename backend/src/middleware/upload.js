@@ -1,26 +1,57 @@
-const fs = require('fs');
 const path = require('path');
+const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
 const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
-fs.mkdirSync(uploadsDir, { recursive: true });
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname).toLowerCase();
-    const safeBaseName = path
-      .basename(file.originalname, extension)
-      .replace(/[^a-z0-9]+/gi, '-')
-      .replace(/^-+|-+$/g, '')
-      .toLowerCase();
+function buildPublicId(file) {
+  const extension = path.extname(file.originalname).toLowerCase();
+  const safeBaseName = path
+    .basename(file.originalname, extension)
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
 
-    cb(null, `${Date.now()}-${safeBaseName || 'business'}${extension}`);
+  return `${Date.now()}-${safeBaseName || 'business'}`;
+}
+
+function ensureCloudinaryConfig() {
+  const requiredVariables = [
+    'CLOUDINARY_CLOUD_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET',
+  ];
+  const missingVariables = requiredVariables.filter((name) => !process.env[name]);
+
+  if (missingVariables.length) {
+    const error = new Error(
+      `Cloudinary is not configured. Missing: ${missingVariables.join(', ')}.`
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+}
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: (req, file) => {
+    ensureCloudinaryConfig();
+
+    return {
+      folder: 'maro-solution/businesses',
+      resource_type: 'image',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+      public_id: buildPublicId(file),
+    };
   },
 });
 
@@ -45,4 +76,3 @@ const upload = multer({
 });
 
 module.exports = { upload };
-

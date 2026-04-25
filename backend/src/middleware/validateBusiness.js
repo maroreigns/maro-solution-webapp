@@ -72,7 +72,7 @@ function handleValidationResult(req, res, next) {
     return next();
   }
 
-  if (req.file) {
+  if (req.file && !/^https?:\/\//i.test(req.file.path || '')) {
     const uploadedPath = path.join(__dirname, '..', '..', 'uploads', req.file.filename);
     if (fs.existsSync(uploadedPath)) {
       fs.unlinkSync(uploadedPath);
