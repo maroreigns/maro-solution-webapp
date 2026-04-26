@@ -19,12 +19,34 @@ const rateLimit = require('express-rate-limit');
 
 const formSubmissionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
     message: 'Too many business submissions from this IP. Please try again later.',
+  },
+});
+
+const ratingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many rating attempts from this IP. Please try again later.',
+  },
+});
+
+const adminDeleteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many delete attempts from this IP. Please try again later.',
   },
 });
 
@@ -61,7 +83,7 @@ router
     createBusiness
   );
 
-router.post('/:id/rate', sanitizeRequestBody, rateBusiness);
+router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);
 
 router
   .route('/:id')
@@ -74,6 +96,6 @@ router
     handleValidationResult,
     updateBusiness
   )
-  .delete(requireAdminDeleteToken, deleteBusiness);
+  .delete(adminDeleteLimiter, requireAdminDeleteToken, deleteBusiness);
 
 module.exports = { businessRoutes: router };

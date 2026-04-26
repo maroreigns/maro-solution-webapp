@@ -15,13 +15,10 @@ const uniqueAllowedOrigins = [
   'https://marosolutionwebapp.netlify.app',
   'http://localhost:5001',
   'http://127.0.0.1:5001',
-  'http://localhost:5000',
-  'http://127.0.0.1:5000',
-  'http://localhost:5500',
-  'http://127.0.0.1:5500',
 ];
 
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 app.use(
   cors({
@@ -30,7 +27,9 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(new Error('This origin is not allowed by CORS.'));
+      const error = new Error('This origin is not allowed by CORS.');
+      error.statusCode = 403;
+      return callback(error);
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: false,
@@ -40,6 +39,7 @@ app.use(
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   })
 );
 

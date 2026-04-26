@@ -7,8 +7,13 @@ function notFoundHandler(req, res) {
 
 function errorHandler(error, req, res, next) {
   const statusCode = error.statusCode || error.status || 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const fallbackMessage =
+    'Something went wrong while processing your request. Please try again.';
   const message =
-    error.message || 'Something went wrong while processing your request. Please try again.';
+    error.publicMessage ||
+    (isProduction && statusCode >= 500 ? fallbackMessage : error.message) ||
+    fallbackMessage;
 
   if (error.name === 'MulterError') {
     return res.status(400).json({
@@ -47,4 +52,3 @@ module.exports = {
   errorHandler,
   notFoundHandler,
 };
-
