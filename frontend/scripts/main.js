@@ -129,13 +129,6 @@
     return String(name || 'M').trim().charAt(0).toUpperCase() || 'M';
   }
 
-  function createStars(rating) {
-    const fullStars = Math.round(Number(rating) || 0);
-    return Array.from({ length: 5 }, function (_, index) {
-      return index < fullStars ? '&#9733;' : '&#9734;';
-    }).join('');
-  }
-
   function getBusinessId(business) {
     return business && (business._id || business.id || '');
   }
@@ -164,12 +157,13 @@
     }
 
     return (
+      '<span class="rating-average-star" aria-hidden="true">&#9733;</span> ' +
       Number(ratingAverage || 0).toFixed(1) +
-      '/5 (' +
+      ' <span class="rating-review-count">(' +
       count +
-      ' customer rating' +
+      ' review' +
       (count === 1 ? '' : 's') +
-      ')'
+      ')</span>'
     );
   }
 
@@ -178,10 +172,13 @@
     const ratingAverage = Number(business.ratingAverage) || 0;
     const ratingCount = Number(business.ratingCount) || 0;
     const alreadyRated = hasRatedBusiness(businessId);
+    const roundedAverage = Math.round(ratingAverage);
     const buttons = Array.from({ length: 5 }, function (_, index) {
       const ratingValue = index + 1;
       return (
-        '<button class="rating-star" type="button" data-rating-value="' +
+        '<button class="rating-star' +
+        (ratingValue <= roundedAverage ? ' is-filled' : '') +
+        '" type="button" data-rating-value="' +
         ratingValue +
         '" aria-label="Rate ' +
         escapeHtml(business.name) +
@@ -190,16 +187,18 @@
         ' out of 5"' +
         (alreadyRated ? ' disabled' : '') +
         '>' +
-        (ratingValue <= Math.round(ratingAverage) ? '&#9733;' : '&#9734;') +
+        '&#9733;' +
         '</button>'
       );
     }).join('');
 
     return [
       '<div class="rating" data-rating-business-id="' + escapeHtml(businessId) + '">',
-      '  <span class="stars" aria-hidden="true">' + createStars(ratingAverage) + '</span>',
-      '  <span class="rating-summary">' + formatRatingSummary(ratingAverage, ratingCount) + '</span>',
-      '  <div class="rating-actions" aria-label="Submit a customer rating">' + buttons + '</div>',
+      '  <div class="rating-summary">' + formatRatingSummary(ratingAverage, ratingCount) + '</div>',
+      '  <div class="rating-input-row">',
+      '    <span class="rating-label">Rate this provider:</span>',
+      '    <div class="rating-actions" aria-label="Submit a customer rating">' + buttons + '</div>',
+      '  </div>',
       '  <span class="rating-feedback" aria-live="polite"></span>',
       '</div>',
     ].join('');
@@ -417,21 +416,16 @@
   function updateRatingNode(ratingNode, ratingData, message) {
     const ratingAverage = Number(ratingData.ratingAverage) || 0;
     const ratingCount = Number(ratingData.ratingCount) || 0;
-    const starsNode = ratingNode.querySelector('.stars');
     const summaryNode = ratingNode.querySelector('.rating-summary');
     const feedbackNode = ratingNode.querySelector('.rating-feedback');
 
-    if (starsNode) {
-      starsNode.innerHTML = createStars(ratingAverage);
-    }
-
     if (summaryNode) {
-      summaryNode.textContent = formatRatingSummary(ratingAverage, ratingCount);
+      summaryNode.innerHTML = formatRatingSummary(ratingAverage, ratingCount);
     }
 
     ratingNode.querySelectorAll('.rating-star').forEach(function (button, index) {
       button.disabled = true;
-      button.innerHTML = index < Math.round(ratingAverage) ? '&#9733;' : '&#9734;';
+      button.classList.toggle('is-filled', index < Math.round(ratingAverage));
     });
 
     if (feedbackNode) {
