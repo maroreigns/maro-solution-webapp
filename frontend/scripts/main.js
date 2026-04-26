@@ -125,16 +125,8 @@
     refreshLgas();
   }
 
-  function initialsFromName(name) {
-    return String(name || '')
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(function (part) {
-        return part[0];
-      })
-      .join('')
-      .toUpperCase();
+  function firstLetterFromName(name) {
+    return String(name || 'M').trim().charAt(0).toUpperCase() || 'M';
   }
 
   function createStars(rating) {
@@ -294,15 +286,22 @@
   }
 
   function createProviderCard(business) {
+    const fallbackLetter = firstLetterFromName(business.name);
     const profileMarkup = business.profileImage
-      ? '<img src="' + resolveAssetUrl(business.profileImage) + '" alt="' + escapeHtml(business.name) + ' profile picture" />'
-      : escapeHtml(initialsFromName(business.name));
+      ? '<img src="' +
+        resolveAssetUrl(business.profileImage) +
+        '" alt="' +
+        escapeHtml(business.name) +
+        ' profile picture" data-avatar-fallback="' +
+        escapeHtml(fallbackLetter) +
+        '" />'
+      : escapeHtml(fallbackLetter);
 
     return [
       '<article class="provider-card">',
       '  <div class="provider-top">',
-      '    <div class="provider-avatar">' + profileMarkup + '</div>',
-      '    <div>',
+      '    <div class="provider-avatar" aria-hidden="' + (business.profileImage ? 'false' : 'true') + '">' + profileMarkup + '</div>',
+      '    <div class="provider-heading">',
       '      <h3>' + escapeHtml(business.name) + '</h3>',
       '      <div class="provider-tags">',
       '        <span class="tag">' + escapeHtml(business.category) + '</span>',
@@ -327,6 +326,28 @@
       '  </div>',
       '</article>',
     ].join('');
+  }
+
+  function setupProviderAvatarFallbacks() {
+    document.addEventListener(
+      'error',
+      function (event) {
+        const image = event.target;
+
+        if (!image || !image.matches || !image.matches('.provider-avatar img')) {
+          return;
+        }
+
+        const avatar = image.closest('.provider-avatar');
+        if (!avatar) {
+          return;
+        }
+
+        avatar.textContent = image.dataset.avatarFallback || 'M';
+        avatar.setAttribute('aria-hidden', 'true');
+      },
+      true
+    );
   }
 
   function getLiveDataUnavailableMessage() {
@@ -745,6 +766,7 @@
   }
 
   initializeSharedUi();
+  setupProviderAvatarFallbacks();
   setupRatingClicks();
 
   if (page === 'home') {
