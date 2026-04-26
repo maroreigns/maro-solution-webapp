@@ -31,7 +31,7 @@ app.use(
       error.statusCode = 403;
       return callback(error);
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: false,
   })
 );

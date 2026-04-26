@@ -318,7 +318,9 @@ body.dark-mode .site-header {
 .hero-panel,
 .filters,
 .business-form,
+.payment-instructions,
 .info-card,
+.admin-panel,
 .cta-banner {
   padding: 1.5rem;
 }
@@ -472,6 +474,77 @@ textarea:focus-visible {
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: auto;
+}
+
+.admin-panel {
+  margin-bottom: 1.25rem;
+}
+
+.admin-panel-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-panel-heading h2,
+.admin-pending-card h3,
+.payment-instructions h2 {
+  margin-top: 0;
+}
+
+.admin-pending-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-pending-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-strong);
+}
+
+.admin-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.payment-instructions {
+  display: grid;
+  gap: 1rem;
+}
+
+.payment-details {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.payment-details div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-strong);
+}
+
+.payment-details dt {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.payment-details dd {
+  margin: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .rating {
@@ -692,6 +765,7 @@ textarea:focus-visible {
 
   .section-heading,
   .cta-banner,
+  .admin-panel-heading,
   .provider-top {
     align-items: start;
     flex-direction: column;
@@ -712,8 +786,15 @@ textarea:focus-visible {
   }
 
   .button,
-  .filter-actions .button {
+  .filter-actions .button,
+  .admin-action-row .button {
     width: 100%;
+  }
+
+  .payment-details div {
+    align-items: start;
+    flex-direction: column;
+    gap: 0.35rem;
   }
 
   .provider-top {

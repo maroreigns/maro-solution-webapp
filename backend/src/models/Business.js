@@ -38,6 +38,29 @@ const businessSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+      index: true,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['unpaid', 'submitted', 'verified', 'failed'],
+      default: 'unpaid',
+      index: true,
+    },
+    paymentReference: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 120,
+    },
+    paymentProof: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     rating: {
       type: Number,
       min: 0,

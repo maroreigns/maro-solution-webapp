@@ -79,6 +79,17 @@
           </form>
 
           <div class="results-meta" id="results-meta">Loading listings...</div>
+          <section class="admin-panel card" id="admin-panel" hidden>
+            <div class="admin-panel-heading">
+              <div>
+                <span class="eyebrow">Admin queue</span>
+                <h2>Pending businesses</h2>
+              </div>
+              <button class="button button-secondary" type="button" id="admin-refresh">Refresh</button>
+            </div>
+            <div class="results-meta" id="admin-pending-meta">Enter admin mode to view pending businesses.</div>
+            <div class="admin-pending-list" id="admin-pending-list"></div>
+          </section>
           <div class="provider-grid" id="listings-grid"></div>
         </div>
       </section>

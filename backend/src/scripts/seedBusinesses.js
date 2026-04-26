@@ -10,7 +10,13 @@ async function seedBusinesses() {
   try {
     await connectDatabase();
     await Business.deleteMany({});
-    await Business.insertMany(sampleBusinesses);
+    await Business.insertMany(
+      sampleBusinesses.map((business) => ({
+        ...business,
+        status: 'approved',
+        paymentStatus: 'verified',
+      }))
+    );
     console.log(`Seeded ${sampleBusinesses.length} businesses successfully.`);
     process.exit(0);
   } catch (error) {

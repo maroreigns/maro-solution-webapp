@@ -111,8 +111,41 @@
 
             <div class="image-preview" id="image-preview">No image selected yet.</div>
 
+            <label>
+              Payment reference
+              <input type="text" name="paymentReference" placeholder="Bank transfer reference or teller number" maxlength="120" />
+            </label>
+
             <button class="button button-primary" type="submit" id="submit-button">Add Business</button>
           </form>
+
+          <section class="payment-instructions card" id="payment-instructions" hidden>
+            <span class="eyebrow">Payment required</span>
+            <h2>Your business has been submitted and is pending payment verification.</h2>
+            <p>Please make payment to the account below and send your payment reference/proof.</p>
+
+            <dl class="payment-details">
+              <div>
+                <dt>Bank Name</dt>
+                <dd>YOUR_BANK_NAME</dd>
+              </div>
+              <div>
+                <dt>Account Name</dt>
+                <dd>YOUR_ACCOUNT_NAME</dd>
+              </div>
+              <div>
+                <dt>Account Number</dt>
+                <dd>YOUR_ACCOUNT_NUMBER</dd>
+              </div>
+              <div>
+                <dt>Listing Fee</dt>
+                <dd>₦YOUR_AMOUNT</dd>
+              </div>
+            </dl>
+
+            <div class="status-message" id="submitted-payment-reference" hidden></div>
+            <a class="button button-primary" href="./listings.html">View public listings</a>
+          </section>
         </div>
       </section>
     </main>

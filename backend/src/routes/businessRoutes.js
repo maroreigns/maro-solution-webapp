@@ -1,11 +1,16 @@
 const express = require('express');
 const {
+  approveBusiness,
   createBusiness,
   deleteBusiness,
   getBusinessById,
   getBusinesses,
+  getPendingBusinesses,
   rateBusiness,
+  rejectBusiness,
+  rejectPayment,
   updateBusiness,
+  verifyPayment,
 } = require('../controllers/businessController');
 const { upload } = require('../middleware/upload');
 const {
@@ -50,25 +55,25 @@ const adminDeleteLimiter = rateLimit({
   },
 });
 
-function requireAdminDeleteToken(req, res, next) {
-  const configuredToken = process.env.ADMIN_DELETE_TOKEN;
-  const providedToken = req.get('x-admin-token');
+function requireAdminToken(req, res, next) {
+  const configuredToken = process.env.ADMIN_TOKEN || process.env.ADMIN_DELETE_TOKEN;
+  const token = req.headers['x-admin-token'];
 
   if (!configuredToken) {
     return res.status(500).json({
       success: false,
-      message: 'ADMIN_DELETE_TOKEN is not configured on the server.',
+      message: 'Admin token is not configured.',
     });
   }
 
-  if (!providedToken || providedToken !== configuredToken) {
-    return res.status(403).json({
-      success: false,
-      message: 'Invalid admin token.',
-    });
+  if (token === configuredToken) {
+    return next();
   }
 
-  return next();
+  return res.status(403).json({
+    success: false,
+    message: 'Admin access denied.',
+  });
 }
 
 router
@@ -85,6 +90,13 @@ router
 
 router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);
 
+router.get('/admin/pending', requireAdminToken, getPendingBusinesses);
+
+router.patch('/:id/verify-payment', requireAdminToken, verifyPayment);
+router.patch('/:id/reject-payment', requireAdminToken, rejectPayment);
+router.patch('/:id/approve', requireAdminToken, approveBusiness);
+router.patch('/:id/reject', requireAdminToken, rejectBusiness);
+
 router
   .route('/:id')
   .get(getBusinessById)
@@ -96,6 +108,6 @@ router
     handleValidationResult,
     updateBusiness
   )
-  .delete(adminDeleteLimiter, requireAdminDeleteToken, deleteBusiness);
+  .delete(adminDeleteLimiter, requireAdminToken, deleteBusiness);
 
 module.exports = { businessRoutes: router };

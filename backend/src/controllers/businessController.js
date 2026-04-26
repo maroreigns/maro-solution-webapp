@@ -28,7 +28,10 @@ function cleanupUploadedFile(filePath) {
 }
 
 function buildFilters(query) {
-  const filters = {};
+  const filters = {
+    status: 'approved',
+    paymentStatus: 'verified',
+  };
   const category = sanitizeString(query.category);
   const state = sanitizeString(query.state);
   const localGovernment = sanitizeString(query.localGovernment);
@@ -69,7 +72,11 @@ const getBusinesses = asyncHandler(async (req, res) => {
 });
 
 const getBusinessById = asyncHandler(async (req, res) => {
-  const business = await Business.findById(req.params.id);
+  const business = await Business.findOne({
+    _id: req.params.id,
+    status: 'approved',
+    paymentStatus: 'verified',
+  });
 
   if (!business) {
     return res.status(404).json({
@@ -94,14 +101,104 @@ const createBusiness = asyncHandler(async (req, res) => {
     address: req.body.address,
     profileImage: buildImagePath(req.file),
     yearsExperience: Number(req.body.yearsExperience),
+    status: 'pending',
+    paymentStatus: 'unpaid',
+    paymentReference: sanitizeString(req.body.paymentReference) || '',
   });
 
   res.status(201).json({
     success: true,
-    message: 'Business added successfully.',
+    message:
+      'Business submitted successfully. Please complete payment. Your listing will go public after payment verification.',
     data: business,
   });
 });
+
+const getPendingBusinesses = asyncHandler(async (req, res) => {
+  const businesses = await Business.find({
+    status: { $ne: 'rejected' },
+    $or: [
+      { status: 'pending' },
+      { paymentStatus: { $in: ['unpaid', 'submitted'] } },
+    ],
+  }).sort({ createdAt: -1 });
+
+  res.json({
+    success: true,
+    count: businesses.length,
+    data: businesses,
+  });
+});
+
+async function updateApprovalState(req, res, updates, message) {
+  const business = await Business.findOne({
+    _id: req.params.id,
+    status: 'approved',
+    paymentStatus: 'verified',
+  });
+
+  if (!business) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found.',
+    });
+  }
+
+  Object.assign(business, updates);
+  await business.save();
+
+  return res.json({
+    success: true,
+    message,
+    data: business,
+  });
+}
+
+const verifyPayment = asyncHandler(async (req, res) =>
+  updateApprovalState(
+    req,
+    res,
+    {
+      paymentStatus: 'verified',
+      status: 'approved',
+    },
+    'Payment verified and business approved.'
+  )
+);
+
+const rejectPayment = asyncHandler(async (req, res) =>
+  updateApprovalState(
+    req,
+    res,
+    {
+      paymentStatus: 'failed',
+      status: 'rejected',
+    },
+    'Payment rejected and business marked as rejected.'
+  )
+);
+
+const approveBusiness = asyncHandler(async (req, res) =>
+  updateApprovalState(
+    req,
+    res,
+    {
+      status: 'approved',
+    },
+    'Business approved.'
+  )
+);
+
+const rejectBusiness = asyncHandler(async (req, res) =>
+  updateApprovalState(
+    req,
+    res,
+    {
+      status: 'rejected',
+    },
+    'Business rejected.'
+  )
+);
 
 const updateBusiness = asyncHandler(async (req, res) => {
   const business = await Business.findById(req.params.id);
@@ -131,6 +228,7 @@ const updateBusiness = asyncHandler(async (req, res) => {
   business.address = req.body.address;
   business.profileImage = newProfileImage;
   business.yearsExperience = Number(req.body.yearsExperience);
+  business.paymentReference = sanitizeString(req.body.paymentReference) || business.paymentReference;
 
   await business.save();
 
@@ -201,10 +299,15 @@ const rateBusiness = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  approveBusiness,
   createBusiness,
   deleteBusiness,
   getBusinessById,
   getBusinesses,
+  getPendingBusinesses,
   rateBusiness,
+  rejectBusiness,
+  rejectPayment,
   updateBusiness,
+  verifyPayment,
 };

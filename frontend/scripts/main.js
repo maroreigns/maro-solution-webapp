@@ -327,6 +327,38 @@
     ].join('');
   }
 
+  function createPendingBusinessCard(business) {
+    const businessId = getBusinessId(business);
+
+    return [
+      '<article class="admin-pending-card" data-admin-business-id="' + escapeHtml(businessId) + '">',
+      '  <div>',
+      '    <h3>' + escapeHtml(business.name) + '</h3>',
+      '    <div class="provider-tags">',
+      '      <span class="tag">' + escapeHtml(business.category) + '</span>',
+      '      <span class="tag">' + escapeHtml(business.state) + '</span>',
+      '      <span class="tag">' + escapeHtml(business.paymentStatus || 'unpaid') + '</span>',
+      '    </div>',
+      '  </div>',
+      '  <div class="provider-meta">',
+      '    <span><strong>Local Government:</strong> ' + escapeHtml(business.localGovernment) + '</span>',
+      '    <span><strong>Phone:</strong> ' + escapeHtml(business.phone) + '</span>',
+      '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
+      '    <span><strong>Payment reference:</strong> ' + escapeHtml(business.paymentReference || 'Not provided yet') + '</span>',
+      '  </div>',
+      '  <div class="admin-action-row">',
+      '    <button class="button button-primary admin-action-button" type="button" data-admin-action="verify-payment">Verify Payment</button>',
+      '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="approve">Approve</button>',
+      '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="reject-payment">Reject Payment</button>',
+      '    <button class="button button-danger admin-action-button" type="button" data-admin-action="reject">Reject</button>',
+      '    <button class="button button-danger admin-delete-button" type="button" data-delete-business-id="' +
+        escapeHtml(businessId) +
+        '">Delete</button>',
+      '  </div>',
+      '</article>',
+    ].join('');
+  }
+
   function setupProviderAvatarFallbacks() {
     document.addEventListener(
       'error',
@@ -408,6 +440,40 @@
 
     if (!response.ok) {
       throw new Error(payload.message || 'Unable to delete business.');
+    }
+
+    return payload;
+  }
+
+  async function fetchPendingBusinesses(adminToken) {
+    const response = await fetch(apiBaseUrl + '/admin/pending', {
+      headers: {
+        'x-admin-token': adminToken,
+      },
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to load pending businesses.');
+    }
+
+    return payload.data || [];
+  }
+
+  async function runAdminBusinessAction(businessId, action, adminToken) {
+    const response = await fetch(
+      apiBaseUrl + '/' + encodeURIComponent(businessId) + '/' + action,
+      {
+        method: 'PATCH',
+        headers: {
+          'x-admin-token': adminToken,
+        },
+      }
+    );
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to update business.');
     }
 
     return payload;
@@ -554,6 +620,10 @@
     const listingsGrid = document.getElementById('listings-grid');
     const resetButton = document.getElementById('reset-filters');
     const adminToggle = document.getElementById('admin-toggle');
+    const adminPanel = document.getElementById('admin-panel');
+    const adminRefresh = document.getElementById('admin-refresh');
+    const adminPendingMeta = document.getElementById('admin-pending-meta');
+    const adminPendingList = document.getElementById('admin-pending-list');
     const searchParams = new URLSearchParams(window.location.search);
 
     populateSelect(categorySelect, appData.businessCategories, 'All categories');
@@ -615,7 +685,36 @@
         return;
       }
 
-      adminToggle.textContent = isAdminDeleteEnabled() ? 'Admin On' : 'Admin';
+      const adminEnabled = isAdminDeleteEnabled();
+      adminToggle.textContent = adminEnabled ? 'Admin On' : 'Admin';
+
+      if (adminPanel) {
+        adminPanel.hidden = !adminEnabled;
+      }
+    }
+
+    async function loadPendingQueue() {
+      if (!adminPendingMeta || !adminPendingList || !isAdminDeleteEnabled()) {
+        return;
+      }
+
+      adminPendingMeta.textContent = 'Loading pending businesses...';
+      adminPendingList.innerHTML = '';
+
+      try {
+        const businesses = await fetchPendingBusinesses(getSavedAdminToken());
+
+        if (!businesses.length) {
+          adminPendingMeta.textContent = 'No pending businesses waiting for review.';
+          return;
+        }
+
+        adminPendingMeta.textContent =
+          businesses.length + ' pending business' + (businesses.length === 1 ? '' : 'es') + '.';
+        adminPendingList.innerHTML = businesses.map(createPendingBusinessCard).join('');
+      } catch (error) {
+        adminPendingMeta.textContent = error.message;
+      }
     }
 
     filterForm.addEventListener('submit', function (event) {
@@ -638,29 +737,31 @@
           if (shouldDisable) {
             sessionStorage.removeItem(adminTokenStorageKey);
             refreshAdminButton();
+            if (adminPendingList) {
+              adminPendingList.innerHTML = '';
+            }
             runSearch();
           }
           return;
         }
 
-        const token = window.prompt('Enter admin delete token');
+        const token = window.prompt('Enter admin token');
         if (!token) {
           return;
         }
 
         sessionStorage.setItem(adminTokenStorageKey, token.trim());
         refreshAdminButton();
+        loadPendingQueue();
         runSearch();
       });
     }
 
-    listingsGrid.addEventListener('click', async function (event) {
-      const deleteButton = event.target.closest('.admin-delete-button');
+    if (adminRefresh) {
+      adminRefresh.addEventListener('click', loadPendingQueue);
+    }
 
-      if (!deleteButton) {
-        return;
-      }
-
+    async function handleAdminDeleteClick(deleteButton) {
       const businessId = deleteButton.dataset.deleteBusinessId;
       const adminToken = getSavedAdminToken();
 
@@ -679,14 +780,72 @@
       try {
         await deleteBusiness(businessId, adminToken);
         await runSearch();
+        await loadPendingQueue();
       } catch (error) {
         window.alert(error.message);
         deleteButton.disabled = false;
         deleteButton.textContent = 'Delete';
       }
+    }
+
+    listingsGrid.addEventListener('click', async function (event) {
+      const deleteButton = event.target.closest('.admin-delete-button');
+
+      if (!deleteButton) {
+        return;
+      }
+
+      handleAdminDeleteClick(deleteButton);
     });
 
+    if (adminPendingList) {
+      adminPendingList.addEventListener('click', async function (event) {
+        const deleteButton = event.target.closest('.admin-delete-button');
+
+        if (deleteButton) {
+          handleAdminDeleteClick(deleteButton);
+          return;
+        }
+
+        const actionButton = event.target.closest('.admin-action-button');
+
+        if (!actionButton) {
+          return;
+        }
+
+        const card = actionButton.closest('[data-admin-business-id]');
+        const businessId = card ? card.dataset.adminBusinessId : '';
+        const action = actionButton.dataset.adminAction;
+        const adminToken = getSavedAdminToken();
+
+        if (!businessId || !action || !adminToken) {
+          return;
+        }
+
+        const shouldContinue = window.confirm('Continue with this admin action?');
+        if (!shouldContinue) {
+          return;
+        }
+
+        actionButton.disabled = true;
+        actionButton.textContent = 'Working...';
+
+        try {
+          await runAdminBusinessAction(businessId, action, adminToken);
+          await loadPendingQueue();
+          await runSearch();
+        } catch (error) {
+          window.alert(error.message);
+          actionButton.disabled = false;
+          actionButton.textContent = action.replace('-', ' ');
+        }
+      });
+    }
+
     refreshAdminButton();
+    if (isAdminDeleteEnabled()) {
+      loadPendingQueue();
+    }
     runSearch();
   }
 
@@ -696,6 +855,8 @@
     const submitButton = document.getElementById('submit-button');
     const imageInput = document.getElementById('profile-image');
     const previewNode = document.getElementById('image-preview');
+    const paymentInstructions = document.getElementById('payment-instructions');
+    const submittedPaymentReference = document.getElementById('submitted-payment-reference');
 
     populateSelect(document.getElementById('business-category'), appData.businessCategories, 'Select category');
     wireStateAndLgaSelects(
@@ -745,7 +906,23 @@
 
         feedback.hidden = false;
         feedback.classList.add('success');
-        feedback.textContent = payload.message || 'Business added successfully.';
+        feedback.textContent =
+          payload.message ||
+          'Business submitted successfully. Please complete payment. Your listing will go public after payment verification.';
+
+        if (paymentInstructions) {
+          paymentInstructions.hidden = false;
+        }
+
+        if (submittedPaymentReference) {
+          const paymentReference = payload.data && payload.data.paymentReference;
+          submittedPaymentReference.hidden = !paymentReference;
+          submittedPaymentReference.textContent = paymentReference
+            ? 'Submitted payment reference: ' + paymentReference
+            : '';
+        }
+
+        form.hidden = true;
         form.reset();
         previewNode.textContent = 'No image selected yet.';
       } catch (error) {
