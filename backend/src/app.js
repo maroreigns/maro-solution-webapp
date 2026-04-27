@@ -12,11 +12,24 @@ const { isDatabaseReady } = require('./config/db');
 const app = express();
 const frontendDir = path.join(__dirname, '..', '..', 'frontend');
 
-const uniqueAllowedOrigins = [
+const configuredOrigins = [
+  process.env.FRONTEND_URL,
+  ...(process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+];
+
+const allowedOrigins = [
+  ...configuredOrigins,
+  'https://marosolutionapp.com',
+  'https://www.marosolutionapp.com',
   'https://marosolutionwebapp.netlify.app',
   'http://localhost:5001',
   'http://127.0.0.1:5001',
 ];
+
+const uniqueAllowedOrigins = [...new Set(allowedOrigins.filter(Boolean))];
 
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
@@ -63,7 +76,7 @@ app.use(mongoSanitize());
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-app.use('/api/businesses', (req, res, next) => {
+app.use('/api/admin', (req, res, next) => {
   if (isDatabaseReady()) {
     return next();
   }
@@ -74,7 +87,7 @@ app.use('/api/businesses', (req, res, next) => {
   });
 });
 
-app.use('/api/admin', (req, res, next) => {
+app.use('/api/businesses', (req, res, next) => {
   if (isDatabaseReady()) {
     return next();
   }
@@ -87,6 +100,7 @@ app.use('/api/admin', (req, res, next) => {
 
 app.use('/api/admin', adminRoutes);
 app.use('/api/businesses', businessRoutes);
+
 app.use(express.static(frontendDir));
 
 app.get('/', (req, res) => {

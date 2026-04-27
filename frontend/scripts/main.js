@@ -11,9 +11,11 @@
     window.MaroConfig && typeof window.MaroConfig.API_BASE_URL === 'string'
       ? window.MaroConfig.API_BASE_URL.trim()
       : '';
-  const apiBaseUrl = normalizeApiBaseUrl(configuredApiBaseUrl || '/api/businesses');
+  const apiRootUrl = normalizeApiRootUrl(configuredApiBaseUrl || '/api');
+  const apiBaseUrl = getBusinessApiBaseUrl(apiRootUrl);
+  const adminApiBaseUrl = getAdminApiBaseUrl(apiRootUrl);
   const apiOrigin = getApiOrigin(apiBaseUrl);
-  const assetBaseUrl = getAssetBaseUrl(configuredApiBaseUrl || apiBaseUrl);
+  const assetBaseUrl = getAssetBaseUrl(apiRootUrl);
   const pagePaths = {
     home: './index.html',
     listings: './listings.html',
@@ -22,7 +24,6 @@
   const whatsappMessage =
     'Hello, I need your service. I am messaging you from Maro Solution website.';
   const adminJwtStorageKey = 'admin_jwt';
-  const adminApiBaseUrl = getAdminApiBaseUrl(apiBaseUrl);
 
   function initializeSharedUi() {
     setupTheme();
@@ -209,17 +210,21 @@
     return String(value || '').replace(/[^\d]/g, '');
   }
 
-  function normalizeApiBaseUrl(url) {
+  function normalizeApiRootUrl(url) {
     if (!url) {
-      return '/api/businesses';
+      return '/api';
     }
 
     const trimmedUrl = url.replace(/\/+$/, '');
-    if (trimmedUrl.endsWith('/api')) {
-      return trimmedUrl + '/businesses';
+    if (trimmedUrl.endsWith('/api/businesses')) {
+      return trimmedUrl.replace(/\/businesses$/, '');
     }
 
     return trimmedUrl;
+  }
+
+  function getBusinessApiBaseUrl(rootUrl) {
+    return rootUrl.replace(/\/+$/, '') + '/businesses';
   }
 
   function getApiOrigin(url) {
@@ -242,19 +247,8 @@
     }
   }
 
-  function getAdminApiBaseUrl(url) {
-    try {
-      const parsedUrl = new URL(url, window.location.origin);
-      parsedUrl.pathname = parsedUrl.pathname.replace(/\/businesses\/?$/, '/admin');
-      if (!/\/admin\/?$/.test(parsedUrl.pathname)) {
-        parsedUrl.pathname = parsedUrl.pathname.replace(/\/?$/, '/admin');
-      }
-      parsedUrl.search = '';
-      parsedUrl.hash = '';
-      return parsedUrl.toString().replace(/\/$/, '');
-    } catch (error) {
-      return '/api/admin';
-    }
+  function getAdminApiBaseUrl(rootUrl) {
+    return rootUrl.replace(/\/+$/, '') + '/admin';
   }
 
   function getAdminAuthHeaders() {
