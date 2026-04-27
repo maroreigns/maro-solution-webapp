@@ -17,6 +17,7 @@ const {
   businessValidationRules,
   handleValidationResult,
 } = require('../middleware/validateBusiness');
+const { requireAdminAuth } = require('../middleware/adminAuth');
 const { sanitizeRequestBody } = require('../utils/sanitize');
 
 const router = express.Router();
@@ -55,27 +56,6 @@ const adminDeleteLimiter = rateLimit({
   },
 });
 
-function requireAdminToken(req, res, next) {
-  const configuredToken = process.env.ADMIN_TOKEN || process.env.ADMIN_DELETE_TOKEN;
-  const token = req.headers['x-admin-token'];
-
-  if (!configuredToken) {
-    return res.status(500).json({
-      success: false,
-      message: 'Admin token is not configured.',
-    });
-  }
-
-  if (token === configuredToken) {
-    return next();
-  }
-
-  return res.status(403).json({
-    success: false,
-    message: 'Admin access denied.',
-  });
-}
-
 router
   .route('/')
   .get(getBusinesses)
@@ -90,12 +70,12 @@ router
 
 router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);
 
-router.get('/admin/pending', requireAdminToken, getPendingBusinesses);
+router.get('/admin/pending', requireAdminAuth, getPendingBusinesses);
 
-router.patch('/:id/verify-payment', requireAdminToken, verifyPayment);
-router.patch('/:id/reject-payment', requireAdminToken, rejectPayment);
-router.patch('/:id/approve', requireAdminToken, approveBusiness);
-router.patch('/:id/reject', requireAdminToken, rejectBusiness);
+router.patch('/:id/verify-payment', requireAdminAuth, verifyPayment);
+router.patch('/:id/reject-payment', requireAdminAuth, rejectPayment);
+router.patch('/:id/approve', requireAdminAuth, approveBusiness);
+router.patch('/:id/reject', requireAdminAuth, rejectBusiness);
 
 router
   .route('/:id')
@@ -108,6 +88,6 @@ router
     handleValidationResult,
     updateBusiness
   )
-  .delete(adminDeleteLimiter, requireAdminToken, deleteBusiness);
+  .delete(adminDeleteLimiter, requireAdminAuth, deleteBusiness);
 
 module.exports = { businessRoutes: router };

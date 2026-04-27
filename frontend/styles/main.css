@@ -499,6 +499,32 @@ textarea:focus-visible {
   gap: 1rem;
 }
 
+.admin-login-shell {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-login-form {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+.admin-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-strong);
+  color: var(--text-muted);
+}
+
 .admin-pending-card {
   display: grid;
   gap: 1rem;
@@ -787,8 +813,14 @@ textarea:focus-visible {
 
   .button,
   .filter-actions .button,
-  .admin-action-row .button {
+  .admin-action-row .button,
+  .admin-login-form .button,
+  .admin-session .button {
     width: 100%;
+  }
+
+  .admin-login-form {
+    grid-template-columns: 1fr;
   }
 
   .payment-details div {

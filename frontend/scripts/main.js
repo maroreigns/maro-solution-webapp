@@ -21,7 +21,8 @@
   };
   const whatsappMessage =
     'Hello, I need your service. I am messaging you from Maro Solution website.';
-  const adminTokenStorageKey = 'maro-admin-delete-token';
+  const adminJwtStorageKey = 'admin_jwt';
+  const adminApiBaseUrl = getAdminApiBaseUrl(apiBaseUrl);
 
   function initializeSharedUi() {
     setupTheme();
@@ -141,12 +142,12 @@
     return Boolean(businessId && localStorage.getItem(getRatingStorageKey(businessId)));
   }
 
-  function getSavedAdminToken() {
-    return sessionStorage.getItem(adminTokenStorageKey) || '';
+  function getSavedAdminJwt() {
+    return sessionStorage.getItem(adminJwtStorageKey) || '';
   }
 
-  function isAdminDeleteEnabled() {
-    return page === 'listings' && Boolean(getSavedAdminToken());
+  function isAdminLoggedIn() {
+    return page === 'listings' && Boolean(getSavedAdminJwt());
   }
 
   function formatRatingSummary(ratingAverage, ratingCount) {
@@ -241,6 +242,27 @@
     }
   }
 
+  function getAdminApiBaseUrl(url) {
+    try {
+      const parsedUrl = new URL(url, window.location.origin);
+      parsedUrl.pathname = parsedUrl.pathname.replace(/\/businesses\/?$/, '/admin');
+      if (!/\/admin\/?$/.test(parsedUrl.pathname)) {
+        parsedUrl.pathname = parsedUrl.pathname.replace(/\/?$/, '/admin');
+      }
+      parsedUrl.search = '';
+      parsedUrl.hash = '';
+      return parsedUrl.toString().replace(/\/$/, '');
+    } catch (error) {
+      return '/api/admin';
+    }
+  }
+
+  function getAdminAuthHeaders() {
+    return {
+      Authorization: 'Bearer ' + getSavedAdminJwt(),
+    };
+  }
+
   function resolveAssetUrl(assetPath) {
     if (!assetPath) {
       return '';
@@ -273,7 +295,7 @@
   function createAdminDeleteButton(business) {
     const businessId = getBusinessId(business);
 
-    if (!isAdminDeleteEnabled() || !businessId) {
+    if (!isAdminLoggedIn() || !businessId) {
       return '';
     }
 
@@ -429,12 +451,40 @@
     return payload;
   }
 
-  async function deleteBusiness(businessId, adminToken) {
+  async function loginAdmin(email, password) {
+    const response = await fetch(adminApiBaseUrl + '/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: email, password: password }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to log in.');
+    }
+
+    return payload;
+  }
+
+  async function fetchCurrentAdmin() {
+    const response = await fetch(adminApiBaseUrl + '/me', {
+      headers: getAdminAuthHeaders(),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Admin session expired.');
+    }
+
+    return payload.data || null;
+  }
+
+  async function deleteBusiness(businessId) {
     const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId), {
       method: 'DELETE',
-      headers: {
-        'x-admin-token': adminToken,
-      },
+      headers: getAdminAuthHeaders(),
     });
     const payload = await response.json();
 
@@ -445,11 +495,9 @@
     return payload;
   }
 
-  async function fetchPendingBusinesses(adminToken) {
+  async function fetchPendingBusinesses() {
     const response = await fetch(apiBaseUrl + '/admin/pending', {
-      headers: {
-        'x-admin-token': adminToken,
-      },
+      headers: getAdminAuthHeaders(),
     });
     const payload = await response.json();
 
@@ -460,14 +508,12 @@
     return payload.data || [];
   }
 
-  async function runAdminBusinessAction(businessId, action, adminToken) {
+  async function runAdminBusinessAction(businessId, action) {
     const response = await fetch(
       apiBaseUrl + '/' + encodeURIComponent(businessId) + '/' + action,
       {
         method: 'PATCH',
-        headers: {
-          'x-admin-token': adminToken,
-        },
+        headers: getAdminAuthHeaders(),
       }
     );
     const payload = await response.json();
@@ -625,6 +671,8 @@
     const adminPendingMeta = document.getElementById('admin-pending-meta');
     const adminPendingList = document.getElementById('admin-pending-list');
     const searchParams = new URLSearchParams(window.location.search);
+    let currentAdmin = null;
+    let isAdminPanelOpen = isAdminLoggedIn();
 
     populateSelect(categorySelect, appData.businessCategories, 'All categories');
     wireStateAndLgaSelects(stateSelect, lgaSelect, 'All local governments');
@@ -680,21 +728,90 @@
       }
     }
 
+    function ensureAdminLoginUi() {
+      if (!adminPanel || document.getElementById('admin-login-shell')) {
+        return;
+      }
+
+      const loginShell = document.createElement('div');
+      loginShell.className = 'admin-login-shell';
+      loginShell.id = 'admin-login-shell';
+      loginShell.innerHTML = [
+        '<form class="admin-login-form" id="admin-login-form">',
+        '  <label>Email',
+        '    <input type="email" name="email" autocomplete="username" required />',
+        '  </label>',
+        '  <label>Password',
+        '    <input type="password" name="password" autocomplete="current-password" required />',
+        '  </label>',
+        '  <button class="button button-primary" type="submit" id="admin-login-submit">Log In</button>',
+        '</form>',
+        '<div class="admin-session" id="admin-session" hidden>',
+        '  <span id="admin-session-label"></span>',
+        '  <button class="button button-secondary" type="button" id="admin-logout">Logout</button>',
+        '</div>',
+        '<div class="form-feedback" id="admin-login-feedback" hidden></div>',
+      ].join('');
+
+      adminPanel.insertBefore(loginShell, adminPendingMeta || adminPanel.firstChild);
+    }
+
+    function setAdminFeedback(message, isError) {
+      const feedbackNode = document.getElementById('admin-login-feedback');
+
+      if (!feedbackNode) {
+        return;
+      }
+
+      feedbackNode.hidden = !message;
+      feedbackNode.className = 'form-feedback' + (isError ? ' error' : ' success');
+      feedbackNode.textContent = message || '';
+    }
+
     function refreshAdminButton() {
       if (!adminToggle) {
         return;
       }
 
-      const adminEnabled = isAdminDeleteEnabled();
-      adminToggle.textContent = adminEnabled ? 'Admin On' : 'Admin';
+      const adminEnabled = isAdminLoggedIn();
+      const loginForm = document.getElementById('admin-login-form');
+      const sessionNode = document.getElementById('admin-session');
+      const sessionLabel = document.getElementById('admin-session-label');
+
+      adminToggle.textContent = adminEnabled ? 'Admin Panel' : 'Admin Login';
 
       if (adminPanel) {
-        adminPanel.hidden = !adminEnabled;
+        adminPanel.hidden = !isAdminPanelOpen && !adminEnabled;
+      }
+
+      if (adminRefresh) {
+        adminRefresh.hidden = !adminEnabled;
+      }
+
+      if (loginForm) {
+        loginForm.hidden = adminEnabled;
+      }
+
+      if (sessionNode) {
+        sessionNode.hidden = !adminEnabled;
+      }
+
+      if (sessionLabel) {
+        sessionLabel.textContent =
+          currentAdmin && currentAdmin.email ? 'Logged in as ' + currentAdmin.email : 'Logged in';
+      }
+
+      if (adminPendingMeta && !adminEnabled) {
+        adminPendingMeta.textContent = 'Log in to view pending businesses.';
+      }
+
+      if (adminPendingList && !adminEnabled) {
+        adminPendingList.innerHTML = '';
       }
     }
 
     async function loadPendingQueue() {
-      if (!adminPendingMeta || !adminPendingList || !isAdminDeleteEnabled()) {
+      if (!adminPendingMeta || !adminPendingList || !isAdminLoggedIn()) {
         return;
       }
 
@@ -702,7 +819,7 @@
       adminPendingList.innerHTML = '';
 
       try {
-        const businesses = await fetchPendingBusinesses(getSavedAdminToken());
+        const businesses = await fetchPendingBusinesses();
 
         if (!businesses.length) {
           adminPendingMeta.textContent = 'No pending businesses waiting for review.';
@@ -714,6 +831,12 @@
         adminPendingList.innerHTML = businesses.map(createPendingBusinessCard).join('');
       } catch (error) {
         adminPendingMeta.textContent = error.message;
+        if (/authentication|required|expired/i.test(error.message)) {
+          sessionStorage.removeItem(adminJwtStorageKey);
+          currentAdmin = null;
+          refreshAdminButton();
+          runSearch();
+        }
       }
     }
 
@@ -730,29 +853,76 @@
 
     if (adminToggle) {
       adminToggle.addEventListener('click', function () {
-        const currentToken = getSavedAdminToken();
-
-        if (currentToken) {
-          const shouldDisable = window.confirm('Disable admin delete mode?');
-          if (shouldDisable) {
-            sessionStorage.removeItem(adminTokenStorageKey);
-            refreshAdminButton();
-            if (adminPendingList) {
-              adminPendingList.innerHTML = '';
-            }
-            runSearch();
-          }
-          return;
+        ensureAdminLoginUi();
+        isAdminPanelOpen = true;
+        if (adminPanel) {
+          adminPanel.hidden = false;
         }
-
-        const token = window.prompt('Enter admin token');
-        if (!token) {
-          return;
-        }
-
-        sessionStorage.setItem(adminTokenStorageKey, token.trim());
         refreshAdminButton();
-        loadPendingQueue();
+
+        if (isAdminLoggedIn()) {
+          loadPendingQueue();
+          return;
+        }
+
+        const emailInput = document.querySelector('#admin-login-form input[name="email"]');
+        if (emailInput) {
+          emailInput.focus();
+        }
+      });
+    }
+
+    ensureAdminLoginUi();
+
+    const adminLoginForm = document.getElementById('admin-login-form');
+    if (adminLoginForm) {
+      adminLoginForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const submitButton = document.getElementById('admin-login-submit');
+        const formData = new FormData(adminLoginForm);
+        const email = String(formData.get('email') || '').trim();
+        const password = String(formData.get('password') || '');
+
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = 'Logging in...';
+        }
+        setAdminFeedback('', false);
+
+        try {
+          const payload = await loginAdmin(email, password);
+          if (!payload.token) {
+            throw new Error('Admin login did not return a session token.');
+          }
+          sessionStorage.setItem(adminJwtStorageKey, payload.token || '');
+          currentAdmin = payload.data || null;
+          adminLoginForm.reset();
+          refreshAdminButton();
+          await loadPendingQueue();
+          await runSearch();
+          setAdminFeedback('Admin login successful.', false);
+        } catch (error) {
+          sessionStorage.removeItem(adminJwtStorageKey);
+          currentAdmin = null;
+          refreshAdminButton();
+          setAdminFeedback(error.message, true);
+        } finally {
+          if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Log In';
+          }
+        }
+      });
+    }
+
+    const adminLogout = document.getElementById('admin-logout');
+    if (adminLogout) {
+      adminLogout.addEventListener('click', function () {
+        sessionStorage.removeItem(adminJwtStorageKey);
+        currentAdmin = null;
+        setAdminFeedback('Logged out.', false);
+        refreshAdminButton();
         runSearch();
       });
     }
@@ -763,9 +933,9 @@
 
     async function handleAdminDeleteClick(deleteButton) {
       const businessId = deleteButton.dataset.deleteBusinessId;
-      const adminToken = getSavedAdminToken();
 
-      if (!businessId || !adminToken) {
+      if (!businessId || !isAdminLoggedIn()) {
+        refreshAdminButton();
         return;
       }
 
@@ -778,7 +948,7 @@
       deleteButton.textContent = 'Deleting...';
 
       try {
-        await deleteBusiness(businessId, adminToken);
+        await deleteBusiness(businessId);
         await runSearch();
         await loadPendingQueue();
       } catch (error) {
@@ -816,9 +986,9 @@
         const card = actionButton.closest('[data-admin-business-id]');
         const businessId = card ? card.dataset.adminBusinessId : '';
         const action = actionButton.dataset.adminAction;
-        const adminToken = getSavedAdminToken();
 
-        if (!businessId || !action || !adminToken) {
+        if (!businessId || !action || !isAdminLoggedIn()) {
+          refreshAdminButton();
           return;
         }
 
@@ -831,7 +1001,7 @@
         actionButton.textContent = 'Working...';
 
         try {
-          await runAdminBusinessAction(businessId, action, adminToken);
+          await runAdminBusinessAction(businessId, action);
           await loadPendingQueue();
           await runSearch();
         } catch (error) {
@@ -843,10 +1013,23 @@
     }
 
     refreshAdminButton();
-    if (isAdminDeleteEnabled()) {
-      loadPendingQueue();
+    if (isAdminLoggedIn()) {
+      fetchCurrentAdmin()
+        .then(function (admin) {
+          currentAdmin = admin;
+          refreshAdminButton();
+          loadPendingQueue();
+          runSearch();
+        })
+        .catch(function () {
+          sessionStorage.removeItem(adminJwtStorageKey);
+          currentAdmin = null;
+          refreshAdminButton();
+          runSearch();
+        });
+    } else {
+      runSearch();
     }
-    runSearch();
   }
 
   function initializeAddBusinessPage() {
