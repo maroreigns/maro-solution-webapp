@@ -11,9 +11,9 @@
     window.MaroConfig && typeof window.MaroConfig.API_BASE_URL === 'string'
       ? window.MaroConfig.API_BASE_URL.trim()
       : '';
- // FIX: ensure frontend always talks to your Render backend
-const defaultApiRootUrl = 'https://maro-solution-backend.onrender.com/api';
-const apiRootUrl = normalizeApiRootUrl(configuredApiBaseUrl || defaultApiRootUrl);
+  const defaultApiRootUrl = 'https://maro-solution-backend.onrender.com/api';
+  const apiRootUrl = normalizeApiRootUrl(configuredApiBaseUrl || defaultApiRootUrl);
+  const apiBaseUrl = getBusinessApiBaseUrl(apiRootUrl);
   const adminApiBaseUrl = getAdminApiBaseUrl(apiRootUrl);
   const apiOrigin = getApiOrigin(apiBaseUrl);
   const assetBaseUrl = getAssetBaseUrl(apiRootUrl);
