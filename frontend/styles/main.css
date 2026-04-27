@@ -321,6 +321,7 @@ body.dark-mode .site-header {
 .payment-instructions,
 .info-card,
 .admin-panel,
+.admin-login,
 .cta-banner {
   padding: 1.5rem;
 }
@@ -478,6 +479,19 @@ textarea:focus-visible {
 
 .admin-panel {
   margin-bottom: 1.25rem;
+}
+
+.admin-login {
+  margin: 1.25rem 0;
+}
+
+.admin-login h2 {
+  margin-top: 0;
+}
+
+.admin-login-form {
+  display: grid;
+  gap: 1rem;
 }
 
 .admin-panel-heading {

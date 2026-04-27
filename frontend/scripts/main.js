@@ -12,6 +12,7 @@
       ? window.MaroConfig.API_BASE_URL.trim()
       : '';
   const apiBaseUrl = normalizeApiBaseUrl(configuredApiBaseUrl || '/api/businesses');
+  const adminApiBaseUrl = getAdminApiBaseUrl(apiBaseUrl);
   const apiOrigin = getApiOrigin(apiBaseUrl);
   const assetBaseUrl = getAssetBaseUrl(configuredApiBaseUrl || apiBaseUrl);
   const pagePaths = {
@@ -21,7 +22,8 @@
   };
   const whatsappMessage =
     'Hello, I need your service. I am messaging you from Maro Solution website.';
-  const adminTokenStorageKey = 'maro-admin-delete-token';
+  const adminJwtStorageKey = 'admin_jwt';
+  let adminSessionValid = false;
 
   function initializeSharedUi() {
     setupTheme();
@@ -142,11 +144,11 @@
   }
 
   function getSavedAdminToken() {
-    return sessionStorage.getItem(adminTokenStorageKey) || '';
+    return sessionStorage.getItem(adminJwtStorageKey) || '';
   }
 
   function isAdminDeleteEnabled() {
-    return page === 'listings' && Boolean(getSavedAdminToken());
+    return page === 'listings' && adminSessionValid && Boolean(getSavedAdminToken());
   }
 
   function formatRatingSummary(ratingAverage, ratingCount) {
@@ -219,6 +221,18 @@
     }
 
     return trimmedUrl;
+  }
+
+  function getAdminApiBaseUrl(url) {
+    try {
+      const parsedUrl = new URL(url, window.location.origin);
+      parsedUrl.pathname = parsedUrl.pathname.replace(/\/api\/businesses\/?$/, '/api/admin');
+      parsedUrl.search = '';
+      parsedUrl.hash = '';
+      return parsedUrl.toString().replace(/\/$/, '');
+    } catch (error) {
+      return '/api/admin';
+    }
   }
 
   function getApiOrigin(url) {
@@ -433,7 +447,7 @@
     const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId), {
       method: 'DELETE',
       headers: {
-        'x-admin-token': adminToken,
+        Authorization: 'Bearer ' + adminToken,
       },
     });
     const payload = await response.json();
@@ -448,7 +462,7 @@
   async function fetchPendingBusinesses(adminToken) {
     const response = await fetch(apiBaseUrl + '/admin/pending', {
       headers: {
-        'x-admin-token': adminToken,
+        Authorization: 'Bearer ' + adminToken,
       },
     });
     const payload = await response.json();
@@ -466,7 +480,7 @@
       {
         method: 'PATCH',
         headers: {
-          'x-admin-token': adminToken,
+          Authorization: 'Bearer ' + adminToken,
         },
       }
     );
@@ -477,6 +491,38 @@
     }
 
     return payload;
+  }
+
+  async function loginAdmin(email, password) {
+    const response = await fetch(adminApiBaseUrl + '/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: email, password: password }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to log in.');
+    }
+
+    return payload;
+  }
+
+  async function fetchAdminMe(adminToken) {
+    const response = await fetch(adminApiBaseUrl + '/me', {
+      headers: {
+        Authorization: 'Bearer ' + adminToken,
+      },
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Admin session expired.');
+    }
+
+    return payload.data;
   }
 
   function updateRatingNode(ratingNode, ratingData, message) {
@@ -620,6 +666,11 @@
     const listingsGrid = document.getElementById('listings-grid');
     const resetButton = document.getElementById('reset-filters');
     const adminToggle = document.getElementById('admin-toggle');
+    const adminLogout = document.getElementById('admin-logout');
+    const adminLogin = document.getElementById('admin-login');
+    const adminLoginForm = document.getElementById('admin-login-form');
+    const adminLoginSubmit = document.getElementById('admin-login-submit');
+    const adminLoginFeedback = document.getElementById('admin-login-feedback');
     const adminPanel = document.getElementById('admin-panel');
     const adminRefresh = document.getElementById('admin-refresh');
     const adminPendingMeta = document.getElementById('admin-pending-meta');
@@ -691,6 +742,50 @@
       if (adminPanel) {
         adminPanel.hidden = !adminEnabled;
       }
+
+      if (adminLogout) {
+        adminLogout.hidden = !adminEnabled;
+      }
+
+      if (adminLogin && adminEnabled) {
+        adminLogin.hidden = true;
+      }
+    }
+
+    function showAdminLogin(message, isError) {
+      if (adminLogin) {
+        adminLogin.hidden = false;
+      }
+
+      if (adminLoginFeedback) {
+        adminLoginFeedback.hidden = !message;
+        adminLoginFeedback.className = 'form-feedback' + (isError ? ' error' : ' success');
+        adminLoginFeedback.textContent = message || '';
+      }
+    }
+
+    async function validateAdminSession() {
+      const adminToken = getSavedAdminToken();
+
+      if (!adminToken) {
+        adminSessionValid = false;
+        refreshAdminButton();
+        return false;
+      }
+
+      try {
+        await fetchAdminMe(adminToken);
+        adminSessionValid = true;
+        refreshAdminButton();
+        await loadPendingQueue();
+        return true;
+      } catch (error) {
+        sessionStorage.removeItem(adminJwtStorageKey);
+        adminSessionValid = false;
+        refreshAdminButton();
+        showAdminLogin(error.message, true);
+        return false;
+      }
     }
 
     async function loadPendingQueue() {
@@ -733,27 +828,63 @@
         const currentToken = getSavedAdminToken();
 
         if (currentToken) {
-          const shouldDisable = window.confirm('Disable admin delete mode?');
-          if (shouldDisable) {
-            sessionStorage.removeItem(adminTokenStorageKey);
-            refreshAdminButton();
-            if (adminPendingList) {
-              adminPendingList.innerHTML = '';
-            }
-            runSearch();
+          if (!adminSessionValid) {
+            validateAdminSession().then(runSearch);
+            return;
           }
+
+          refreshAdminButton();
+          loadPendingQueue();
           return;
         }
 
-        const token = window.prompt('Enter admin token');
-        if (!token) {
-          return;
-        }
+        showAdminLogin('', false);
+      });
+    }
 
-        sessionStorage.setItem(adminTokenStorageKey, token.trim());
+    if (adminLogout) {
+      adminLogout.addEventListener('click', function () {
+        sessionStorage.removeItem(adminJwtStorageKey);
+        adminSessionValid = false;
         refreshAdminButton();
-        loadPendingQueue();
+        if (adminPendingList) {
+          adminPendingList.innerHTML = '';
+        }
+        if (adminPendingMeta) {
+          adminPendingMeta.textContent = 'Log in to view pending businesses.';
+        }
         runSearch();
+      });
+    }
+
+    if (adminLoginForm) {
+      adminLoginForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        if (adminLoginFeedback) {
+          adminLoginFeedback.hidden = true;
+          adminLoginFeedback.className = 'form-feedback';
+        }
+
+        adminLoginSubmit.disabled = true;
+        adminLoginSubmit.textContent = 'Logging in...';
+
+        try {
+          const formData = new FormData(adminLoginForm);
+          const payload = await loginAdmin(formData.get('email'), formData.get('password'));
+          sessionStorage.setItem(adminJwtStorageKey, payload.token);
+          adminSessionValid = true;
+          adminLoginForm.reset();
+          showAdminLogin('', false);
+          refreshAdminButton();
+          await loadPendingQueue();
+          await runSearch();
+        } catch (error) {
+          showAdminLogin(error.message, true);
+        } finally {
+          adminLoginSubmit.disabled = false;
+          adminLoginSubmit.textContent = 'Login';
+        }
       });
     }
 
@@ -842,11 +973,12 @@
       });
     }
 
-    refreshAdminButton();
-    if (isAdminDeleteEnabled()) {
-      loadPendingQueue();
+    if (getSavedAdminToken()) {
+      validateAdminSession().then(runSearch);
+    } else {
+      refreshAdminButton();
+      runSearch();
     }
-    runSearch();
   }
 
   function initializeAddBusinessPage() {

@@ -75,8 +75,29 @@
               <button class="button button-primary" type="submit">Search</button>
               <button class="button button-secondary" type="button" id="reset-filters">Reset</button>
               <button class="button button-secondary" type="button" id="admin-toggle">Admin</button>
+              <button class="button button-secondary" type="button" id="admin-logout" hidden>Logout</button>
             </div>
           </form>
+
+          <section class="admin-login card" id="admin-login" hidden>
+            <h2>Admin login</h2>
+            <form class="admin-login-form" id="admin-login-form">
+              <div class="form-row">
+                <label>
+                  Email
+                  <input type="email" name="email" autocomplete="username" required />
+                </label>
+                <label>
+                  Password
+                  <input type="password" name="password" autocomplete="current-password" required />
+                </label>
+              </div>
+              <div class="filter-actions">
+                <button class="button button-primary" type="submit" id="admin-login-submit">Login</button>
+              </div>
+              <div class="form-feedback" id="admin-login-feedback" hidden></div>
+            </form>
+          </section>
 
           <div class="results-meta" id="results-meta">Loading listings...</div>
           <section class="admin-panel card" id="admin-panel" hidden>
