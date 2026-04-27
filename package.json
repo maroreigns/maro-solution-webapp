@@ -6,7 +6,6 @@
     "install:backend": "npm install --prefix backend",
     "dev": "npm run dev --prefix backend",
     "start": "npm run start --prefix backend",
-    "seed": "npm run seed --prefix backend",
-    "create-admin": "npm run create-admin --prefix backend"
+    "seed": "npm run seed --prefix backend"
   }
 }

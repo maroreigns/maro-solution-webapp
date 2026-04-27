@@ -2,6 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { getAdminMe, loginAdmin } = require('../controllers/adminController');
 const { requireAdminAuth } = require('../middleware/adminAuth');
+const { sanitizeRequestBody } = require('../utils/sanitize');
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ const adminLoginLimiter = rateLimit({
   },
 });
 
-router.post('/login', adminLoginLimiter, loginAdmin);
+router.post('/login', adminLoginLimiter, sanitizeRequestBody, loginAdmin);
 router.get('/me', requireAdminAuth, getAdminMe);
 
 module.exports = { adminRoutes: router };

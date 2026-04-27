@@ -4,7 +4,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
-const { adminRoutes } = require('./routes/adminRoutes');
 const { businessRoutes } = require('./routes/businessRoutes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { isDatabaseReady } = require('./config/db');
@@ -75,7 +74,6 @@ app.use('/api/businesses', (req, res, next) => {
 });
 
 app.use('/api/businesses', businessRoutes);
-app.use('/api/admin', adminRoutes);
 app.use(express.static(frontendDir));
 
 app.get('/', (req, res) => {
