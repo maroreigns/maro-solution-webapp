@@ -98,19 +98,23 @@ const createBusiness = asyncHandler(async (req, res) => {
     state: req.body.state,
     localGovernment: req.body.localGovernment,
     phone: req.body.phone,
+    email: req.body.email,
     address: req.body.address,
     profileImage: buildImagePath(req.file),
     yearsExperience: Number(req.body.yearsExperience),
     status: 'pending',
     paymentStatus: 'unpaid',
-    paymentReference: sanitizeString(req.body.paymentReference) || '',
   });
 
   res.status(201).json({
     success: true,
-    message:
-      'Business submitted successfully. Please complete payment. Your listing will go public after payment verification.',
-    data: business,
+    message: 'Business submitted. Proceed to payment to complete your listing.',
+    data: {
+      _id: business._id,
+      id: business._id,
+      status: business.status,
+      paymentStatus: business.paymentStatus,
+    },
   });
 });
 
@@ -119,9 +123,9 @@ const getPendingBusinesses = asyncHandler(async (req, res) => {
     status: { $ne: 'rejected' },
     $or: [
       { status: 'pending' },
-      { paymentStatus: { $in: ['unpaid', 'submitted'] } },
+      { paymentStatus: { $in: ['unpaid', 'initialized', 'failed'] } },
     ],
-  }).sort({ createdAt: -1 });
+  }).sort({ paymentStatus: -1, createdAt: -1 });
 
   res.json({
     success: true,
@@ -131,11 +135,7 @@ const getPendingBusinesses = asyncHandler(async (req, res) => {
 });
 
 async function updateApprovalState(req, res, updates, message) {
-  const business = await Business.findOne({
-    _id: req.params.id,
-    status: 'approved',
-    paymentStatus: 'verified',
-  });
+  const business = await Business.findById(req.params.id);
 
   if (!business) {
     return res.status(404).json({
@@ -154,17 +154,31 @@ async function updateApprovalState(req, res, updates, message) {
   });
 }
 
-const verifyPayment = asyncHandler(async (req, res) =>
-  updateApprovalState(
-    req,
-    res,
-    {
-      paymentStatus: 'verified',
-      status: 'approved',
-    },
-    'Payment verified and business approved.'
-  )
-);
+const verifyPayment = asyncHandler(async (req, res) => {
+  const business = await Business.findById(req.params.id);
+
+  if (!business) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found.',
+    });
+  }
+
+  if (!business.paymentReference) {
+    return res.status(400).json({
+      success: false,
+      message: 'No Paystack payment reference found for this business.',
+    });
+  }
+
+  const { verifyAndSavePayment } = require('./paymentController');
+  await verifyAndSavePayment(business.paymentReference);
+
+  return res.json({
+    success: true,
+    message: 'Payment verified. Your listing is pending admin approval.',
+  });
+});
 
 const rejectPayment = asyncHandler(async (req, res) =>
   updateApprovalState(
@@ -178,16 +192,32 @@ const rejectPayment = asyncHandler(async (req, res) =>
   )
 );
 
-const approveBusiness = asyncHandler(async (req, res) =>
-  updateApprovalState(
-    req,
-    res,
-    {
-      status: 'approved',
-    },
-    'Business approved.'
-  )
-);
+const approveBusiness = asyncHandler(async (req, res) => {
+  const business = await Business.findById(req.params.id);
+
+  if (!business) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found.',
+    });
+  }
+
+  if (business.paymentStatus !== 'verified') {
+    return res.status(400).json({
+      success: false,
+      message: 'Payment must be verified before this business can be approved.',
+    });
+  }
+
+  business.status = 'approved';
+  await business.save();
+
+  return res.json({
+    success: true,
+    message: 'Business approved.',
+    data: business,
+  });
+});
 
 const rejectBusiness = asyncHandler(async (req, res) =>
   updateApprovalState(
@@ -225,10 +255,10 @@ const updateBusiness = asyncHandler(async (req, res) => {
   business.state = req.body.state;
   business.localGovernment = req.body.localGovernment;
   business.phone = req.body.phone;
+  business.email = req.body.email;
   business.address = req.body.address;
   business.profileImage = newProfileImage;
   business.yearsExperience = Number(req.body.yearsExperience);
-  business.paymentReference = sanitizeString(req.body.paymentReference) || business.paymentReference;
 
   await business.save();
 

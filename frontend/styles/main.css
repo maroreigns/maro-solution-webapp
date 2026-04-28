@@ -676,7 +676,19 @@ textarea:focus-visible {
   border-color: rgba(39, 174, 96, 0.24);
 }
 
+.status-message.success {
+  background: rgba(39, 174, 96, 0.12);
+  color: #167040;
+  border-color: rgba(39, 174, 96, 0.24);
+}
+
 .form-feedback.error {
+  background: rgba(230, 79, 79, 0.12);
+  color: #b13333;
+  border-color: rgba(230, 79, 79, 0.2);
+}
+
+.status-message.error {
   background: rgba(230, 79, 79, 0.12);
   color: #b13333;
   border-color: rgba(230, 79, 79, 0.2);

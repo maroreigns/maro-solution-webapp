@@ -15,6 +15,7 @@
   const apiRootUrl = normalizeApiRootUrl(configuredApiBaseUrl || defaultApiRootUrl);
   const apiBaseUrl = getBusinessApiBaseUrl(apiRootUrl);
   const adminApiBaseUrl = getAdminApiBaseUrl(apiRootUrl);
+  const paymentApiBaseUrl = getPaymentApiBaseUrl(apiRootUrl);
   const apiOrigin = getApiOrigin(apiBaseUrl);
   const assetBaseUrl = getAssetBaseUrl(apiRootUrl);
   const pagePaths = {
@@ -252,6 +253,10 @@
     return rootUrl.replace(/\/+$/, '') + '/admin';
   }
 
+  function getPaymentApiBaseUrl(rootUrl) {
+    return rootUrl.replace(/\/+$/, '') + '/payments';
+  }
+
   function getAdminAuthHeaders() {
     return {
       Authorization: 'Bearer ' + getSavedAdminJwt(),
@@ -360,6 +365,7 @@
       '  <div class="provider-meta">',
       '    <span><strong>Local Government:</strong> ' + escapeHtml(business.localGovernment) + '</span>',
       '    <span><strong>Phone:</strong> ' + escapeHtml(business.phone) + '</span>',
+      '    <span><strong>Email:</strong> ' + escapeHtml(business.email || 'Not provided') + '</span>',
       '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
       '    <span><strong>Payment reference:</strong> ' + escapeHtml(business.paymentReference || 'Not provided yet') + '</span>',
       '  </div>',
@@ -520,6 +526,46 @@
     return payload;
   }
 
+  async function initializePayment(businessId) {
+    const response = await fetch(
+      paymentApiBaseUrl + '/initialize/' + encodeURIComponent(businessId),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to initialize payment.');
+    }
+
+    if (!payload.authorization_url) {
+      throw new Error('Payment gateway did not return a payment link.');
+    }
+
+    return payload.authorization_url;
+  }
+
+  async function verifyPaymentReference(reference) {
+    const response = await fetch(paymentApiBaseUrl + '/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ reference: reference }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to verify payment.');
+    }
+
+    return payload;
+  }
+
   function updateRatingNode(ratingNode, ratingData, message) {
     const ratingAverage = Number(ratingData.ratingAverage) || 0;
     const ratingCount = Number(ratingData.ratingCount) || 0;
@@ -666,8 +712,11 @@
     const adminPendingMeta = document.getElementById('admin-pending-meta');
     const adminPendingList = document.getElementById('admin-pending-list');
     const searchParams = new URLSearchParams(window.location.search);
+    const paymentReference = searchParams.get('reference') || searchParams.get('trxref') || '';
+    const shouldVerifyPayment = searchParams.get('payment') === 'success' || Boolean(paymentReference);
     let currentAdmin = null;
     let isAdminPanelOpen = isAdminLoggedIn();
+    let paymentReturnMessage = null;
 
     populateSelect(categorySelect, appData.businessCategories, 'All categories');
     wireStateAndLgaSelects(stateSelect, lgaSelect, 'All local governments');
@@ -677,6 +726,60 @@
     stateSelect.dispatchEvent(new Event('change'));
     lgaSelect.value = searchParams.get('localGovernment') || '';
     keywordInput.value = searchParams.get('keyword') || '';
+
+    function ensurePaymentReturnMessage() {
+      if (paymentReturnMessage) {
+        return paymentReturnMessage;
+      }
+
+      paymentReturnMessage = document.createElement('div');
+      paymentReturnMessage.className = 'status-message';
+      paymentReturnMessage.hidden = true;
+      filterForm.parentNode.insertBefore(paymentReturnMessage, resultsMeta);
+      return paymentReturnMessage;
+    }
+
+    function setPaymentReturnMessage(message, isError) {
+      const messageNode = ensurePaymentReturnMessage();
+      messageNode.hidden = !message;
+      messageNode.className = 'status-message' + (isError ? ' error' : ' success');
+      messageNode.textContent = message || '';
+    }
+
+    async function verifyPaymentFromReturnUrl() {
+      if (!shouldVerifyPayment) {
+        return;
+      }
+
+      if (!paymentReference) {
+        setPaymentReturnMessage(
+          'Payment reference was not found in the return URL. Please contact support if you completed payment.',
+          true
+        );
+        return;
+      }
+
+      setPaymentReturnMessage('Verifying Paystack payment...', false);
+
+      try {
+        const payload = await verifyPaymentReference(paymentReference);
+        setPaymentReturnMessage(
+          payload.message || 'Payment verified. Your listing is pending admin approval.',
+          false
+        );
+      } catch (error) {
+        setPaymentReturnMessage(error.message || 'Unable to verify payment.', true);
+      } finally {
+        searchParams.delete('payment');
+        searchParams.delete('reference');
+        searchParams.delete('trxref');
+        window.history.replaceState(
+          {},
+          '',
+          pagePaths.listings + (searchParams.toString() ? '?' + searchParams.toString() : '')
+        );
+      }
+    }
 
     async function runSearch() {
       resultsMeta.textContent = 'Loading listings...';
@@ -1007,6 +1110,7 @@
       });
     }
 
+    verifyPaymentFromReturnUrl();
     refreshAdminButton();
     if (isAdminLoggedIn()) {
       fetchCurrentAdmin()
@@ -1035,6 +1139,8 @@
     const previewNode = document.getElementById('image-preview');
     const paymentInstructions = document.getElementById('payment-instructions');
     const submittedPaymentReference = document.getElementById('submitted-payment-reference');
+    const payListingFeeButton = document.getElementById('pay-listing-fee');
+    let submittedBusinessId = '';
 
     populateSelect(document.getElementById('business-category'), appData.businessCategories, 'Select category');
     wireStateAndLgaSelects(
@@ -1093,12 +1199,15 @@
         }
 
         if (submittedPaymentReference) {
-          const paymentReference = payload.data && payload.data.paymentReference;
-          submittedPaymentReference.hidden = !paymentReference;
-          submittedPaymentReference.textContent = paymentReference
-            ? 'Submitted payment reference: ' + paymentReference
-            : '';
+          submittedPaymentReference.hidden = false;
+          submittedPaymentReference.textContent =
+            'Business submitted. Proceed to payment to complete your listing.';
         }
+
+        submittedBusinessId =
+          payload.data && (payload.data._id || payload.data.id)
+            ? String(payload.data._id || payload.data.id)
+            : '';
 
         form.hidden = true;
         form.reset();
@@ -1112,6 +1221,43 @@
         submitButton.textContent = 'Add Business';
       }
     });
+
+    if (payListingFeeButton) {
+      payListingFeeButton.addEventListener('click', async function () {
+        if (!submittedBusinessId) {
+          if (submittedPaymentReference) {
+            submittedPaymentReference.hidden = false;
+            submittedPaymentReference.classList.add('error');
+            submittedPaymentReference.textContent =
+              'Business ID was not returned. Please submit the form again.';
+          }
+          return;
+        }
+
+        payListingFeeButton.disabled = true;
+        payListingFeeButton.textContent = 'Opening Paystack...';
+
+        if (submittedPaymentReference) {
+          submittedPaymentReference.hidden = false;
+          submittedPaymentReference.classList.remove('error');
+          submittedPaymentReference.textContent = 'Preparing secure Paystack payment...';
+        }
+
+        try {
+          const authorizationUrl = await initializePayment(submittedBusinessId);
+          window.location.href = authorizationUrl;
+        } catch (error) {
+          payListingFeeButton.disabled = false;
+          payListingFeeButton.textContent = 'Pay Listing Fee';
+
+          if (submittedPaymentReference) {
+            submittedPaymentReference.hidden = false;
+            submittedPaymentReference.classList.add('error');
+            submittedPaymentReference.textContent = error.message;
+          }
+        }
+      });
+    }
   }
 
   initializeSharedUi();

@@ -28,6 +28,12 @@ const businessSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 120,
+    },
     address: {
       type: String,
       required: true,
@@ -46,7 +52,7 @@ const businessSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ['unpaid', 'submitted', 'verified', 'failed'],
+      enum: ['unpaid', 'initialized', 'verified', 'failed'],
       default: 'unpaid',
       index: true,
     },
@@ -55,6 +61,24 @@ const businessSchema = new mongoose.Schema(
       default: '',
       trim: true,
       maxlength: 120,
+    },
+    paystackAccessCode: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    paystackAuthorizationUrl: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    amountPaid: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    paidAt: {
+      type: Date,
     },
     paymentProof: {
       type: String,

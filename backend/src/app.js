@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const { adminRoutes } = require('./routes/adminRoutes');
 const { businessRoutes } = require('./routes/businessRoutes');
+const { paymentRoutes } = require('./routes/paymentRoutes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { isDatabaseReady } = require('./config/db');
 
@@ -98,8 +99,20 @@ app.use('/api/businesses', (req, res, next) => {
   });
 });
 
+app.use('/api/payments', (req, res, next) => {
+  if (isDatabaseReady()) {
+    return next();
+  }
+
+  return res.status(503).json({
+    success: false,
+    message: 'The database is currently unavailable. Please try again shortly.',
+  });
+});
+
 app.use('/api/admin', adminRoutes);
 app.use('/api/businesses', businessRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.use(express.static(frontendDir));
 

@@ -80,6 +80,15 @@ const businessValidationRules = [
     .withMessage('Phone number must be between 7 and 20 characters.')
     .matches(phoneRegex)
     .withMessage('Please provide a valid phone number.'),
+  body('email')
+    .trim()
+    .normalizeEmail()
+    .notEmpty()
+    .withMessage('Email address is required for payment.')
+    .isEmail()
+    .withMessage('Please provide a valid email address.')
+    .isLength({ max: 120 })
+    .withMessage('Email address is too long.'),
   body('address')
     .trim()
     .notEmpty()
