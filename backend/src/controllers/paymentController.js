@@ -11,7 +11,7 @@ function getPaystackSecretKey() {
   if (!secretKey) {
     const error = new Error('Paystack is not configured.');
     error.statusCode = 500;
-    error.publicMessage = 'Payment is not configured yet. Please try again later.';
+    error.publicMessage = 'Payment is not configured yet. Please contact admin.';
     throw error;
   }
 
@@ -19,15 +19,7 @@ function getPaystackSecretKey() {
 }
 
 function getListingFeeKobo() {
-  const listingFeeNaira = Number(process.env.LISTING_FEE_NAIRA);
-
-  if (!Number.isFinite(listingFeeNaira) || listingFeeNaira <= 0) {
-    const error = new Error('LISTING_FEE_NAIRA must be a positive number.');
-    error.statusCode = 500;
-    error.publicMessage = 'Payment amount is not configured yet. Please try again later.';
-    throw error;
-  }
-
+  const listingFeeNaira = Number(process.env.LISTING_FEE_NAIRA || 1000);
   return Math.round(listingFeeNaira * 100);
 }
 
@@ -40,6 +32,7 @@ async function callPaystack(path, options = {}) {
       ...(options.headers || {}),
     },
   });
+
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok || payload.status === false) {
@@ -58,9 +51,7 @@ async function findBusinessForVerifiedPayment(paystackData) {
     paystackData.metadata && paystackData.metadata.businessId
   );
 
-  let business = reference
-    ? await Business.findOne({ paymentReference: reference })
-    : null;
+  let business = reference ? await Business.findOne({ paymentReference: reference }) : null;
 
   if (!business && metadataBusinessId) {
     business = await Business.findById(metadataBusinessId);
@@ -80,6 +71,7 @@ async function verifyAndSavePayment(reference) {
   }
 
   const expectedAmountKobo = getListingFeeKobo();
+
   const paystackData = await callPaystack(
     `/transaction/verify/${encodeURIComponent(cleanReference)}`,
     {
@@ -114,6 +106,7 @@ async function verifyAndSavePayment(reference) {
   business.paymentReference = cleanReference;
   business.amountPaid = Number(paystackData.amount) / 100;
   business.paidAt = new Date();
+
   if (business.status !== 'approved') {
     business.status = 'pending';
   }
@@ -173,11 +166,12 @@ const initializePayment = asyncHandler(async (req, res) => {
 });
 
 const verifyPaystackReference = asyncHandler(async (req, res) => {
-  await verifyAndSavePayment(req.body.reference);
+  const business = await verifyAndSavePayment(req.body.reference);
 
   res.json({
     success: true,
     message: 'Payment verified. Your listing is pending admin approval.',
+    data: business,
   });
 });
 
