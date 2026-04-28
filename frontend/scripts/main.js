@@ -1110,25 +1110,29 @@
       });
     }
 
-    verifyPaymentFromReturnUrl();
-    refreshAdminButton();
-    if (isAdminLoggedIn()) {
-      fetchCurrentAdmin()
-        .then(function (admin) {
-          currentAdmin = admin;
+    async function initializeListingsData() {
+      await verifyPaymentFromReturnUrl();
+      refreshAdminButton();
+
+      if (isAdminLoggedIn()) {
+        try {
+          currentAdmin = await fetchCurrentAdmin();
           refreshAdminButton();
-          loadPendingQueue();
-          runSearch();
-        })
-        .catch(function () {
+          await loadPendingQueue();
+          await runSearch();
+        } catch (error) {
           sessionStorage.removeItem(adminJwtStorageKey);
           currentAdmin = null;
           refreshAdminButton();
-          runSearch();
-        });
-    } else {
-      runSearch();
+          await runSearch();
+        }
+        return;
+      }
+
+      await runSearch();
     }
+
+    initializeListingsData();
   }
 
   function initializeAddBusinessPage() {

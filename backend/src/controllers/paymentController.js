@@ -1,9 +1,10 @@
+const crypto = require('crypto');
 const { Business } = require('../models/Business');
 const { asyncHandler } = require('../utils/asyncHandler');
 const { sanitizeString } = require('../utils/sanitize');
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
-const PAYSTACK_CALLBACK_URL = 'https://marosolutionapp.com/listings.html?payment=success';
+const PAYSTACK_CALLBACK_BASE_URL = 'https://marosolutionapp.com/listings.html';
 
 function getPaystackSecretKey() {
   const secretKey = process.env.PAYSTACK_SECRET_KEY;
@@ -19,8 +20,25 @@ function getPaystackSecretKey() {
 }
 
 function getListingFeeKobo() {
-  const listingFeeNaira = Number(process.env.LISTING_FEE_NAIRA || 1000);
+  const configuredListingFee = Number(process.env.LISTING_FEE_NAIRA);
+  const listingFeeNaira =
+    Number.isFinite(configuredListingFee) && configuredListingFee > 0
+      ? configuredListingFee
+      : 1000;
+
   return Math.round(listingFeeNaira * 100);
+}
+
+function createPaymentReference(businessId) {
+  const suffix = crypto.randomBytes(6).toString('hex');
+  return `maro_${businessId}_${Date.now()}_${suffix}`;
+}
+
+function buildCallbackUrl(reference) {
+  const callbackUrl = new URL(PAYSTACK_CALLBACK_BASE_URL);
+  callbackUrl.searchParams.set('payment', 'success');
+  callbackUrl.searchParams.set('reference', reference);
+  return callbackUrl.toString();
 }
 
 async function callPaystack(path, options = {}) {
@@ -137,12 +155,15 @@ const initializePayment = asyncHandler(async (req, res) => {
     });
   }
 
+  const paymentReference = createPaymentReference(business._id);
+
   const paystackData = await callPaystack('/transaction/initialize', {
     method: 'POST',
     body: JSON.stringify({
       email: providerEmail,
       amount: getListingFeeKobo(),
-      callback_url: PAYSTACK_CALLBACK_URL,
+      reference: paymentReference,
+      callback_url: buildCallbackUrl(paymentReference),
       metadata: {
         businessId: String(business._id),
         businessName: business.name,
@@ -151,7 +172,7 @@ const initializePayment = asyncHandler(async (req, res) => {
   });
 
   business.email = providerEmail;
-  business.paymentReference = paystackData.reference || business.paymentReference;
+  business.paymentReference = paystackData.reference || paymentReference;
   business.paystackAccessCode = paystackData.access_code || '';
   business.paystackAuthorizationUrl = paystackData.authorization_url || '';
   business.paymentStatus = 'initialized';
