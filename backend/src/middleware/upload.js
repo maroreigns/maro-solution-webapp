@@ -67,12 +67,32 @@ function fileFilter(req, file, cb) {
   cb(null, true);
 }
 
-const upload = multer({
+const multerUpload = multer({
   storage,
   limits: {
-    fileSize: 2 * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024,
   },
   fileFilter,
 });
+
+const upload = {
+  single(fieldName) {
+    const middleware = multerUpload.single(fieldName);
+
+    return (req, res, next) => {
+      middleware(req, res, (error) => {
+        if (error && error.code === 'LIMIT_FILE_SIZE') {
+          const sizeError = new Error(
+            'This image is too large. Please choose a photo under 10MB.'
+          );
+          sizeError.statusCode = 400;
+          return next(sizeError);
+        }
+
+        return next(error);
+      });
+    };
+  },
+};
 
 module.exports = { upload };
