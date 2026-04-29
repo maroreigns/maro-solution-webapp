@@ -209,7 +209,21 @@
   }
 
   function normalizeWhatsapp(value) {
-    return String(value || '').replace(/[^\d]/g, '');
+    const digits = String(value || '').replace(/[^\d]/g, '');
+
+    if (digits.length === 11 && digits.startsWith('0')) {
+      return '234' + digits.slice(1);
+    }
+
+    if (digits.startsWith('234')) {
+      return digits;
+    }
+
+    if (digits.length === 10 && /^[789]/.test(digits)) {
+      return '234' + digits;
+    }
+
+    return digits;
   }
 
   function normalizeApiRootUrl(url) {
