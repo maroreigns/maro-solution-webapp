@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Maro Solution | Service Listings</title>
+    <title>Maro Solution | About</title>
     <meta
       name="description"
-      content="Browse and filter service providers by category, state, local government, and keyword on Maro Solution."
+      content="Learn about Maro Solution, a service directory helping people in Nigeria find trusted local providers."
     />
     <link rel="stylesheet" href="./styles/main.css" />
   </head>
-  <body data-page="listings">
+  <body data-page="about">
     <header class="site-header">
       <div class="container nav-shell">
         <a class="brand" href="./index.html">
@@ -33,7 +33,7 @@
           <a href="./add-business.html">Add Business</a>
           <a href="./about.html">About</a>
           <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
-            <span aria-hidden="true">◐</span>
+            <span aria-hidden="true">â—</span>
           </button>
         </nav>
       </div>
@@ -44,54 +44,38 @@
         <div class="container">
           <div class="section-heading">
             <div>
-              <span class="eyebrow">Search listings</span>
-              <h1>Find the right provider for the job</h1>
+              <span class="eyebrow">About us</span>
+              <h1>About Maro Solution</h1>
             </div>
           </div>
 
-          <form class="filters card" id="listings-filter-form">
-            <label>
-              Keyword or name
-              <input type="text" name="keyword" id="filter-keyword" placeholder="Search for a business or service" />
-            </label>
-            <label>
-              Category
-              <select name="category" id="filter-category">
-                <option value="">All categories</option>
-              </select>
-            </label>
-            <label>
-              State
-              <select name="state" id="filter-state">
-                <option value="">All states</option>
-              </select>
-            </label>
-            <label>
-              Local Government
-              <select name="localGovernment" id="filter-local-government">
-                <option value="">All local governments</option>
-              </select>
-            </label>
-            <div class="filter-actions">
-              <button class="button button-primary" type="submit">Search</button>
-              <button class="button button-secondary" type="button" id="reset-filters">Reset</button>
-              <button class="button button-secondary" type="button" id="admin-toggle">Admin</button>
-            </div>
-          </form>
+          <div class="info-card card">
+            <p>
+              Maro Solution helps people in Nigeria find trusted local service providers such as electricians, plumbers, mechanics, cleaners, cooks, tailors, barbers, and more.
+            </p>
+            <p>
+              Service providers can list their businesses so customers can easily discover them, view important details, and contact them when they need help.
+            </p>
+            <p>
+              Listings go through payment and admin approval before they become public. This helps improve trust and safety for customers and providers using Maro Solution.
+            </p>
+          </div>
+        </div>
+      </section>
 
-          <div class="results-meta" id="results-meta">Loading listings...</div>
-          <section class="admin-panel card" id="admin-panel" hidden>
-            <div class="admin-panel-heading">
-              <div>
-                <span class="eyebrow">Admin queue</span>
-                <h2>Pending businesses</h2>
-              </div>
-              <button class="button button-secondary" type="button" id="admin-refresh">Refresh</button>
+      <section class="section section-tint">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Contact Us</span>
+              <h2>Contact Us</h2>
             </div>
-            <div class="results-meta" id="admin-pending-meta">Enter admin mode to view pending businesses.</div>
-            <div class="admin-pending-list" id="admin-pending-list"></div>
-          </section>
-          <div class="provider-grid" id="listings-grid"></div>
+          </div>
+
+          <div class="hero-actions">
+            <a class="button button-whatsapp" href="https://wa.me/YOUR_PHONE_NUMBER?text=Hello%20Maro%20Solution%2C%20I%20need%20help." target="_blank" rel="noreferrer">Chat with us on WhatsApp</a>
+            <a class="button button-secondary" href="mailto:YOUR_EMAIL@example.com">Email us</a>
+          </div>
         </div>
       </section>
     </main>
