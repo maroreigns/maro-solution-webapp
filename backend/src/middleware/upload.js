@@ -93,6 +93,29 @@ const upload = {
       });
     };
   },
+  fields(fieldsConfig) {
+    const middleware = multerUpload.fields(fieldsConfig);
+
+    return (req, res, next) => {
+      middleware(req, res, (error) => {
+        if (error && error.code === 'LIMIT_FILE_SIZE') {
+          const sizeError = new Error(
+            'This image is too large. Please choose photos under 10MB.'
+          );
+          sizeError.statusCode = 400;
+          return next(sizeError);
+        }
+
+        if (error && error.code === 'LIMIT_UNEXPECTED_FILE') {
+          const countError = new Error('You can upload one profile image and up to 3 service photos.');
+          countError.statusCode = 400;
+          return next(countError);
+        }
+
+        return next(error);
+      });
+    };
+  },
 };
 
 module.exports = { upload };

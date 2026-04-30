@@ -372,6 +372,8 @@
 
   function createBusinessProfile(business) {
     const fallbackLetter = firstLetterFromName(business.name);
+    const serviceImages = Array.isArray(business.serviceImages) ? business.serviceImages : [];
+    const comments = Array.isArray(business.comments) ? business.comments : [];
     const profileMarkup = business.profileImage
       ? '<img src="' +
         resolveAssetUrl(business.profileImage) +
@@ -400,6 +402,28 @@
       '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
       '    <span><strong>Experience:</strong> ' + escapeHtml(String(business.yearsExperience)) + ' years</span>',
       '  </div>',
+      business.serviceDescription
+        ? '  <section class="profile-section"><h4>How I serve customers</h4><p>' +
+          escapeHtml(business.serviceDescription) +
+          '</p></section>'
+        : '',
+      serviceImages.length
+        ? '  <section class="profile-section"><h4>Service photos</h4><div class="service-gallery">' +
+          serviceImages
+            .map(function (imageUrl, index) {
+              return (
+                '<img src="' +
+                resolveAssetUrl(imageUrl) +
+                '" alt="' +
+                escapeHtml(business.name) +
+                ' service photo ' +
+                (index + 1) +
+                '" />'
+              );
+            })
+            .join('') +
+          '</div></section>'
+        : '',
       '  <div class="rating">',
       '    <div class="rating-summary">' +
         formatRatingSummary(business.ratingAverage, business.ratingCount) +
@@ -415,6 +439,61 @@
         normalizeWhatsapp(business.phone) +
         '">Call</a>',
       '  </div>',
+      createBusinessComments(comments),
+      '</article>',
+    ].join('');
+  }
+
+  function formatCommentDate(value) {
+    if (!value) {
+      return '';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+
+  function createBusinessComments(comments) {
+    const commentMarkup = comments.length
+      ? comments
+          .map(function (comment) {
+            return createBusinessCommentItem(comment);
+          })
+          .join('')
+      : '<div class="status-message">No comments yet. Be the first to share your experience.</div>';
+
+    return [
+      '<section class="profile-section profile-comments">',
+      '  <h4>Comments</h4>',
+      '  <div class="profile-comments-list" id="profile-comments-list">' + commentMarkup + '</div>',
+      '  <form class="comment-form" id="comment-form">',
+      '    <div class="form-feedback" id="comment-feedback" hidden></div>',
+      '    <label>Name<input type="text" name="name" maxlength="60" required /></label>',
+      '    <label>Comment<textarea name="message" maxlength="500" rows="4" required></textarea></label>',
+      '    <button class="button button-primary" type="submit">Submit Comment</button>',
+      '  </form>',
+      '</section>',
+    ].join('');
+  }
+
+  function createBusinessCommentItem(comment) {
+    const dateText = formatCommentDate(comment.createdAt);
+
+    return [
+      '<article class="profile-comment">',
+      '  <div class="profile-comment-heading">',
+      '    <strong>' + escapeHtml(comment.name) + '</strong>',
+      dateText ? '    <span>' + escapeHtml(dateText) + '</span>' : '',
+      '  </div>',
+      '  <p>' + escapeHtml(comment.message) + '</p>',
       '</article>',
     ].join('');
   }
@@ -515,6 +594,23 @@
 
     if (!response.ok) {
       throw new Error(payload.message || 'Unable to load this business profile.');
+    }
+
+    return payload.data || null;
+  }
+
+  async function postBusinessComment(businessId, name, message) {
+    const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId) + '/comments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: name, message: message }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to add comment.');
     }
 
     return payload.data || null;
@@ -811,6 +907,64 @@
     } catch (error) {
       statusNode.textContent = error.message;
     }
+
+    profileNode.addEventListener('submit', async function (event) {
+      const form = event.target.closest('#comment-form');
+
+      if (!form) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const feedback = document.getElementById('comment-feedback');
+      const submitButton = form.querySelector('button[type="submit"]');
+      const formData = new FormData(form);
+      const name = String(formData.get('name') || '').trim();
+      const message = String(formData.get('message') || '').trim();
+
+      if (feedback) {
+        feedback.hidden = true;
+        feedback.className = 'form-feedback';
+      }
+
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting...';
+      }
+
+      try {
+        const comment = await postBusinessComment(businessId, name, message);
+        const commentsList = document.getElementById('profile-comments-list');
+
+        if (commentsList && comment) {
+          if (commentsList.querySelector('.status-message')) {
+            commentsList.innerHTML = '';
+          }
+
+          commentsList.insertAdjacentHTML('beforeend', createBusinessCommentItem(comment));
+        }
+
+        form.reset();
+
+        if (feedback) {
+          feedback.hidden = false;
+          feedback.classList.add('success');
+          feedback.textContent = 'Comment submitted successfully.';
+        }
+      } catch (error) {
+        if (feedback) {
+          feedback.hidden = false;
+          feedback.classList.add('error');
+          feedback.textContent = error.message;
+        }
+      } finally {
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = 'Submit Comment';
+        }
+      }
+    });
   }
 
   function initializeListingsPage() {
@@ -1256,7 +1410,9 @@
     const feedback = document.getElementById('form-feedback');
     const submitButton = document.getElementById('submit-button');
     const imageInput = document.getElementById('profile-image');
+    const serviceImagesInput = document.getElementById('service-images');
     const previewNode = document.getElementById('image-preview');
+    const serviceImagesPreviewNode = document.getElementById('service-images-preview');
     const paymentInstructions = document.getElementById('payment-instructions');
     const submittedPaymentReference = document.getElementById('submitted-payment-reference');
     const payListingFeeButton = document.getElementById('pay-listing-fee');
@@ -1273,6 +1429,27 @@
       const file = imageInput.files && imageInput.files[0];
       previewNode.textContent = file ? 'Selected image: ' + file.name : 'No image selected yet.';
     });
+
+    if (serviceImagesInput && serviceImagesPreviewNode) {
+      serviceImagesInput.addEventListener('change', function () {
+        const files = Array.from(serviceImagesInput.files || []);
+
+        if (files.length > 3) {
+          serviceImagesInput.value = '';
+          serviceImagesPreviewNode.textContent = 'Please choose up to 3 service photos.';
+          return;
+        }
+
+        serviceImagesPreviewNode.textContent = files.length
+          ? 'Selected service photos: ' +
+            files
+              .map(function (file) {
+                return file.name;
+              })
+              .join(', ')
+          : 'No service photos selected yet.';
+      });
+    }
 
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
@@ -1292,6 +1469,10 @@
       }
 
       try {
+        if (serviceImagesInput && serviceImagesInput.files && serviceImagesInput.files.length > 3) {
+          throw new Error('Please choose up to 3 service photos.');
+        }
+
         const formData = new FormData(form);
         const response = await fetch(apiBaseUrl, {
           method: 'POST',
@@ -1332,6 +1513,9 @@
         form.hidden = true;
         form.reset();
         previewNode.textContent = 'No image selected yet.';
+        if (serviceImagesPreviewNode) {
+          serviceImagesPreviewNode.textContent = 'No service photos selected yet.';
+        }
       } catch (error) {
         feedback.hidden = false;
         feedback.classList.add('error');

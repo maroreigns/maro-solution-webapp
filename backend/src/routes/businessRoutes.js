@@ -1,5 +1,6 @@
 const express = require('express');
 const {
+  addBusinessComment,
   approveBusiness,
   createBusiness,
   deleteBusiness,
@@ -61,7 +62,10 @@ router
   .get(getBusinesses)
   .post(
     formSubmissionLimiter,
-    upload.single('profileImage'),
+    upload.fields([
+      { name: 'profileImage', maxCount: 1 },
+      { name: 'serviceImages', maxCount: 3 },
+    ]),
     sanitizeRequestBody,
     businessValidationRules,
     handleValidationResult,
@@ -69,6 +73,7 @@ router
   );
 
 router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);
+router.post('/:id/comments', sanitizeRequestBody, addBusinessComment);
 
 router.get('/admin/pending', requireAdminAuth, getPendingBusinesses);
 

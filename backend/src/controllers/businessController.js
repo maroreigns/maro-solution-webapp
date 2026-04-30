@@ -16,6 +16,20 @@ function buildImagePath(file) {
   return `/uploads/${file.filename}`;
 }
 
+function getUploadedFile(req, fieldName) {
+  if (req.file && req.file.fieldname === fieldName) {
+    return req.file;
+  }
+
+  const files = req.files && req.files[fieldName];
+  return Array.isArray(files) ? files[0] : null;
+}
+
+function getUploadedFiles(req, fieldName) {
+  const files = req.files && req.files[fieldName];
+  return Array.isArray(files) ? files : [];
+}
+
 function cleanupUploadedFile(filePath) {
   if (!filePath || /^https?:\/\//i.test(filePath)) {
     return;
@@ -92,6 +106,9 @@ const getBusinessById = asyncHandler(async (req, res) => {
 });
 
 const createBusiness = asyncHandler(async (req, res) => {
+  const profileImage = getUploadedFile(req, 'profileImage');
+  const serviceImages = getUploadedFiles(req, 'serviceImages').map(buildImagePath);
+
   const business = await Business.create({
     name: req.body.name,
     category: req.body.category,
@@ -100,7 +117,9 @@ const createBusiness = asyncHandler(async (req, res) => {
     phone: req.body.phone,
     email: req.body.email,
     address: req.body.address,
-    profileImage: buildImagePath(req.file),
+    profileImage: buildImagePath(profileImage),
+    serviceDescription: sanitizeString(req.body.serviceDescription) || '',
+    serviceImages,
     yearsExperience: Number(req.body.yearsExperience),
     status: 'pending',
     paymentStatus: 'unpaid',
@@ -328,7 +347,62 @@ const rateBusiness = asyncHandler(async (req, res) => {
   });
 });
 
+const addBusinessComment = asyncHandler(async (req, res) => {
+  const name = sanitizeString(String(req.body.name || ''));
+  const message = sanitizeString(String(req.body.message || ''));
+
+  if (!name || !message) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name and comment are required.',
+    });
+  }
+
+  if (name.length > 60) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name must be 60 characters or fewer.',
+    });
+  }
+
+  if (message.length > 500) {
+    return res.status(400).json({
+      success: false,
+      message: 'Comment must be 500 characters or fewer.',
+    });
+  }
+
+  const business = await Business.findOne({
+    _id: req.params.id,
+    status: 'approved',
+    paymentStatus: 'verified',
+  });
+
+  if (!business) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found.',
+    });
+  }
+
+  const comment = {
+    name,
+    message,
+    createdAt: new Date(),
+  };
+
+  business.comments.push(comment);
+  await business.save();
+
+  res.status(201).json({
+    success: true,
+    message: 'Comment added.',
+    data: business.comments[business.comments.length - 1],
+  });
+});
+
 module.exports = {
+  addBusinessComment,
   approveBusiness,
   createBusiness,
   deleteBusiness,

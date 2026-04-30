@@ -96,6 +96,12 @@ const businessValidationRules = [
     .isLength({ min: 5, max: 180 })
     .withMessage('Address must be between 5 and 180 characters.')
     .custom(rejectSuspiciousText),
+  body('serviceDescription')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('How you serve customers must be 1000 characters or fewer.')
+    .custom(rejectSuspiciousText),
   body('yearsExperience')
     .trim()
     .notEmpty()
@@ -112,12 +118,21 @@ function handleValidationResult(req, res, next) {
     return next();
   }
 
-  if (req.file && !/^https?:\/\//i.test(req.file.path || '')) {
-    const uploadedPath = path.join(__dirname, '..', '..', 'uploads', req.file.filename);
+  const uploadedFiles = [
+    req.file,
+    ...Object.values(req.files || {}).flat(),
+  ].filter(Boolean);
+
+  uploadedFiles.forEach((file) => {
+    if (file.path && /^https?:\/\//i.test(file.path)) {
+      return;
+    }
+
+    const uploadedPath = path.join(__dirname, '..', '..', 'uploads', file.filename);
     if (fs.existsSync(uploadedPath)) {
       fs.unlinkSync(uploadedPath);
     }
-  }
+  });
 
   return res.status(400).json({
     success: false,

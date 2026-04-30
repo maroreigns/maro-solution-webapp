@@ -44,6 +44,34 @@ const businessSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    serviceDescription: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 1000,
+    },
+    serviceImages: {
+      type: [String],
+      default: [],
+    },
+    comments: [
+      {
+        name: {
+          type: String,
+          trim: true,
+          maxlength: 60,
+        },
+        message: {
+          type: String,
+          trim: true,
+          maxlength: 500,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],

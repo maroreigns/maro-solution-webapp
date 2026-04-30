@@ -476,6 +476,69 @@ textarea:focus-visible {
   margin-top: auto;
 }
 
+.profile-section {
+  display: grid;
+  gap: 0.85rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.profile-section h4 {
+  margin: 0;
+}
+
+.profile-section p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.service-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.85rem;
+}
+
+.service-gallery img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  object-fit: cover;
+  background: var(--bg-strong);
+}
+
+.profile-comments {
+  gap: 1rem;
+}
+
+.profile-comments-list,
+.comment-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.profile-comment {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-strong);
+}
+
+.profile-comment-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.profile-comment-heading span {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
 .admin-panel {
   margin-bottom: 1.25rem;
 }

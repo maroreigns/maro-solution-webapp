@@ -102,6 +102,11 @@
               <input type="text" name="address" placeholder="Street, area, landmark, or nearby location" required />
             </label>
 
+            <label>
+              How will you serve your customers?
+              <textarea name="serviceDescription" placeholder="Tell customers what makes your service reliable, fast, or trustworthy." rows="4"></textarea>
+            </label>
+
             <div class="form-row">
               <label>
                 Years of experience
@@ -115,6 +120,13 @@
             </label>
 
             <div class="image-preview" id="image-preview">No image selected yet.</div>
+
+            <label>
+              Service photos
+              <input type="file" name="serviceImages" id="service-images" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple />
+            </label>
+
+            <div class="image-preview" id="service-images-preview">No service photos selected yet.</div>
 
             <button class="button button-primary" type="submit" id="submit-button">Add Business</button>
           </form>
