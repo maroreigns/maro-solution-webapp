@@ -894,6 +894,7 @@ window.MaroData = {
     "Mechanic",
     "Cleaner",
     "Cook",
+    "Land Surveyor",
     "Caterer",
     "Tailor",
     "Barber",
