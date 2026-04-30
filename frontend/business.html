@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maro Solution | Business Profile</title>
+    <meta
+      name="description"
+      content="View a service provider profile and contact them through Maro Solution."
+    />
+    <link rel="stylesheet" href="./styles/main.css" />
+  </head>
+  <body data-page="business">
+    <header class="site-header">
+      <div class="container nav-shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">M</span>
+          <span class="brand-text">
+            <strong>Maro Solution</strong>
+            <small>Nigeria's service directory</small>
+          </span>
+        </a>
+
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <nav class="site-nav" id="site-nav">
+          <a href="./index.html">Home</a>
+          <a href="./listings.html">Listings</a>
+          <a href="./add-business.html">Add Business</a>
+          <a href="./about.html">About</a>
+          <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <span aria-hidden="true">&#9679;</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <section class="section">
+        <div class="container">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Business profile</span>
+              <h1>Service provider details</h1>
+            </div>
+            <a href="./listings.html" class="text-link">Back to listings</a>
+          </div>
+
+          <div class="status-message" id="business-profile-status">Loading business profile...</div>
+          <div id="business-profile"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div>
+          <h3>Maro Solution</h3>
+          <p>Helping people discover trusted local service providers across Nigeria.</p>
+        </div>
+        <div class="footer-links">
+          <a href="./index.html">Home</a>
+          <a href="./listings.html">Listings</a>
+          <a href="./add-business.html">Add Business</a>
+          <a href="./about.html">About</a>
+          <a href="https://facebook.com" target="_blank" rel="noreferrer">Facebook</a>
+          <a href="https://instagram.com" target="_blank" rel="noreferrer">Instagram</a>
+        </div>
+        <p class="copyright">Copyright <span id="current-year"></span> Maro Solution. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="./scripts/data.js"></script>
+    <script src="./scripts/config.js"></script>
+    <script src="./scripts/main.js"></script>
+  </body>
+</html>

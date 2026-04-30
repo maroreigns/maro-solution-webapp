@@ -22,6 +22,7 @@
     home: './index.html',
     listings: './listings.html',
     addBusiness: './add-business.html',
+    business: './business.html',
   };
   const whatsappMessage =
     'Hello, I need your service. I am messaging you from Maro Solution website.';
@@ -321,6 +322,7 @@
   }
 
   function createProviderCard(business) {
+    const businessId = getBusinessId(business);
     const fallbackLetter = firstLetterFromName(business.name);
     const profileMarkup = business.profileImage
       ? '<img src="' +
@@ -357,7 +359,61 @@
         '?text=' +
         encodeURIComponent(whatsappMessage) +
         '">WhatsApp</a>',
+      '    <a class="button button-secondary" href="' +
+        pagePaths.business +
+        '?id=' +
+        encodeURIComponent(businessId) +
+        '">View Profile</a>',
       '    ' + createAdminDeleteButton(business),
+      '  </div>',
+      '</article>',
+    ].join('');
+  }
+
+  function createBusinessProfile(business) {
+    const fallbackLetter = firstLetterFromName(business.name);
+    const profileMarkup = business.profileImage
+      ? '<img src="' +
+        resolveAssetUrl(business.profileImage) +
+        '" alt="' +
+        escapeHtml(business.name) +
+        ' profile picture" data-avatar-fallback="' +
+        escapeHtml(fallbackLetter) +
+        '" />'
+      : escapeHtml(fallbackLetter);
+
+    return [
+      '<article class="provider-card">',
+      '  <div class="provider-top">',
+      '    <div class="provider-avatar" aria-hidden="' + (business.profileImage ? 'false' : 'true') + '">' + profileMarkup + '</div>',
+      '    <div class="provider-heading">',
+      '      <h3>' + escapeHtml(business.name) + '</h3>',
+      '      <div class="provider-tags">',
+      '        <span class="tag">' + escapeHtml(business.category) + '</span>',
+      '        <span class="tag">' + escapeHtml(business.state) + '</span>',
+      '      </div>',
+      '    </div>',
+      '  </div>',
+      '  <div class="provider-meta">',
+      '    <span><strong>Local Government:</strong> ' + escapeHtml(business.localGovernment) + '</span>',
+      '    <span><strong>Phone:</strong> ' + escapeHtml(business.phone) + '</span>',
+      '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
+      '    <span><strong>Experience:</strong> ' + escapeHtml(String(business.yearsExperience)) + ' years</span>',
+      '  </div>',
+      '  <div class="rating">',
+      '    <div class="rating-summary">' +
+        formatRatingSummary(business.ratingAverage, business.ratingCount) +
+        '</div>',
+      '  </div>',
+      '  <div class="provider-actions">',
+      '    <a class="button button-whatsapp" target="_blank" rel="noreferrer" href="https://wa.me/' +
+        normalizeWhatsapp(business.phone) +
+        '?text=' +
+        encodeURIComponent(whatsappMessage) +
+        '">WhatsApp</a>',
+      '    <a class="button button-secondary" href="tel:+' +
+        normalizeWhatsapp(business.phone) +
+        '">Call</a>',
       '  </div>',
       '</article>',
     ].join('');
@@ -447,6 +503,21 @@
     }
 
     return payload.data || [];
+  }
+
+  async function fetchBusinessById(businessId) {
+    if (isFileProtocol) {
+      throw new Error(getLiveDataUnavailableMessage());
+    }
+
+    const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId));
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to load this business profile.');
+    }
+
+    return payload.data || null;
   }
 
   async function submitBusinessRating(businessId, ratingValue) {
@@ -708,6 +779,37 @@
       listNode.innerHTML = businesses.slice(0, 4).map(createProviderCard).join('');
     } catch (error) {
       loadingNode.textContent = error.message;
+    }
+  }
+
+  async function initializeBusinessProfilePage() {
+    const profileNode = document.getElementById('business-profile');
+    const statusNode = document.getElementById('business-profile-status');
+    const searchParams = new URLSearchParams(window.location.search);
+    const businessId = searchParams.get('id') || '';
+
+    if (!profileNode || !statusNode) {
+      return;
+    }
+
+    if (!businessId) {
+      statusNode.textContent = 'Business profile link is missing an ID.';
+      return;
+    }
+
+    try {
+      const business = await fetchBusinessById(businessId);
+
+      if (!business) {
+        statusNode.textContent = 'Business profile was not found.';
+        return;
+      }
+
+      statusNode.hidden = true;
+      profileNode.innerHTML = createBusinessProfile(business);
+      document.title = 'Maro Solution | ' + business.name;
+    } catch (error) {
+      statusNode.textContent = error.message;
     }
   }
 
@@ -1288,6 +1390,10 @@
 
   if (page === 'listings') {
     initializeListingsPage();
+  }
+
+  if (page === 'business') {
+    initializeBusinessProfilePage();
   }
 
   if (page === 'add-business') {
