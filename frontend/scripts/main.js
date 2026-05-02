@@ -27,6 +27,7 @@
   const whatsappMessage =
     'Hello, I need your service. I am messaging you from Maro Solution website.';
   const adminJwtStorageKey = 'admin_jwt';
+  const ownerListingStorageKey = 'maro-owner-listing-status';
 
   function initializeSharedUi() {
     setupTheme();
@@ -148,6 +149,32 @@
 
   function getSavedAdminJwt() {
     return sessionStorage.getItem(adminJwtStorageKey) || '';
+  }
+
+  function getTrackedOwnerListing() {
+    try {
+      return JSON.parse(localStorage.getItem(ownerListingStorageKey) || '{}') || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveTrackedOwnerListing(updates) {
+    const currentListing = getTrackedOwnerListing();
+    const nextListing = {
+      ...currentListing,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem(ownerListingStorageKey, JSON.stringify(nextListing));
+    return nextListing;
+  }
+
+  function getTrackedOwnerBusinessId(trackedListing) {
+    return String(
+      (trackedListing && (trackedListing.businessId || trackedListing.id || trackedListing._id)) || ''
+    );
   }
 
   function isAdminLoggedIn() {
@@ -599,6 +626,30 @@
     return payload.data || null;
   }
 
+  async function fetchBusinessOwnerStatus(businessId, reference) {
+    if (isFileProtocol) {
+      throw new Error(getLiveDataUnavailableMessage());
+    }
+
+    const url = new URL(
+      apiBaseUrl + '/' + encodeURIComponent(businessId) + '/owner-status',
+      window.location.origin
+    );
+
+    if (reference) {
+      url.searchParams.set('reference', reference);
+    }
+
+    const response = await fetch(url.toString());
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to load your listing status.');
+    }
+
+    return payload;
+  }
+
   async function postBusinessComment(businessId, name, message) {
     const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId) + '/comments', {
       method: 'POST',
@@ -987,6 +1038,7 @@
     let currentAdmin = null;
     let isAdminPanelOpen = isAdminLoggedIn();
     let paymentReturnMessage = null;
+    let ownerStatusMessage = null;
 
     populateSelect(categorySelect, appData.businessCategories, 'All categories');
     wireStateAndLgaSelects(stateSelect, lgaSelect, 'All local governments');
@@ -1016,6 +1068,73 @@
       messageNode.textContent = message || '';
     }
 
+    function ensureOwnerStatusMessage() {
+      if (ownerStatusMessage) {
+        return ownerStatusMessage;
+      }
+
+      ownerStatusMessage = document.createElement('div');
+      ownerStatusMessage.className = 'status-message owner-listing-status';
+      ownerStatusMessage.hidden = true;
+      filterForm.parentNode.insertBefore(ownerStatusMessage, resultsMeta);
+      return ownerStatusMessage;
+    }
+
+    function setOwnerListingStatusMessage(payload) {
+      const statusData = payload && payload.data ? payload.data : null;
+      const messageNode = ensureOwnerStatusMessage();
+
+      if (!statusData) {
+        messageNode.hidden = true;
+        messageNode.textContent = '';
+        return;
+      }
+
+      const isApproved = statusData.status === 'approved' && statusData.paymentStatus === 'verified';
+      const isPendingReview =
+        statusData.status === 'pending' && statusData.paymentStatus === 'verified';
+
+      if (!isApproved && !isPendingReview) {
+        messageNode.hidden = true;
+        messageNode.textContent = '';
+        return;
+      }
+
+      messageNode.hidden = false;
+      messageNode.className = 'status-message owner-listing-status' + (isApproved ? ' success' : '');
+
+      const profileLink = isApproved
+        ? ' <a class="text-link" href="' +
+          pagePaths.business +
+          '?id=' +
+          encodeURIComponent(statusData.id || statusData._id) +
+          '">View your live listing</a>'
+        : '';
+
+      messageNode.innerHTML = escapeHtml(payload.message || '') + profileLink;
+    }
+
+    async function loadTrackedOwnerListingStatus() {
+      const trackedListing = getTrackedOwnerListing();
+      const trackedBusinessId = getTrackedOwnerBusinessId(trackedListing);
+
+      if (!trackedBusinessId) {
+        return;
+      }
+
+      try {
+        const payload = await fetchBusinessOwnerStatus(
+          trackedBusinessId,
+          trackedListing.paymentReference || ''
+        );
+        setOwnerListingStatusMessage(payload);
+      } catch (error) {
+        const messageNode = ensureOwnerStatusMessage();
+        messageNode.hidden = true;
+        messageNode.textContent = '';
+      }
+    }
+
     async function verifyPaymentFromReturnUrl() {
       if (!shouldVerifyPayment) {
         return;
@@ -1033,6 +1152,18 @@
 
       try {
         const payload = await verifyPaymentReference(paymentReference);
+        const business = payload.data || {};
+        const businessId = business._id || business.id || getTrackedOwnerBusinessId(getTrackedOwnerListing());
+
+        if (businessId) {
+          saveTrackedOwnerListing({
+            businessId: String(businessId),
+            paymentReference: paymentReference,
+            status: business.status || 'pending',
+            paymentStatus: business.paymentStatus || 'verified',
+          });
+        }
+
         setPaymentReturnMessage(
           payload.message || 'Payment verified. Your listing is pending admin approval.',
           false
@@ -1382,6 +1513,7 @@
 
     async function initializeListingsData() {
       await verifyPaymentFromReturnUrl();
+      await loadTrackedOwnerListingStatus();
       refreshAdminButton();
 
       if (isAdminLoggedIn()) {
@@ -1510,6 +1642,15 @@
             ? String(payload.data._id || payload.data.id)
             : '';
 
+        if (submittedBusinessId) {
+          saveTrackedOwnerListing({
+            businessId: submittedBusinessId,
+            status: (payload.data && payload.data.status) || 'pending',
+            paymentStatus: (payload.data && payload.data.paymentStatus) || 'unpaid',
+            paymentReference: '',
+          });
+        }
+
         form.hidden = true;
         form.reset();
         previewNode.textContent = 'No image selected yet.';
@@ -1548,6 +1689,11 @@
         }
 
         try {
+          saveTrackedOwnerListing({
+            businessId: submittedBusinessId,
+            status: 'pending',
+            paymentStatus: 'initialized',
+          });
           const authorizationUrl = await initializePayment(submittedBusinessId);
           window.location.href = authorizationUrl;
         } catch (error) {

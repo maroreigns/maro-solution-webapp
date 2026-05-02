@@ -5,6 +5,7 @@ const {
   createBusiness,
   deleteBusiness,
   getBusinessById,
+  getBusinessOwnerStatus,
   getBusinesses,
   getPendingBusinesses,
   rateBusiness,
@@ -74,6 +75,7 @@ router
 
 router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);
 router.post('/:id/comments', sanitizeRequestBody, addBusinessComment);
+router.get('/:id/owner-status', getBusinessOwnerStatus);
 
 router.get('/admin/pending', requireAdminAuth, getPendingBusinesses);
 

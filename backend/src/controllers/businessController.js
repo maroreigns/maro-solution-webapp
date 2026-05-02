@@ -105,6 +105,69 @@ const getBusinessById = asyncHandler(async (req, res) => {
   });
 });
 
+function getOwnerStatusMessage(business) {
+  if (business.status === 'approved' && business.paymentStatus === 'verified') {
+    return 'Congratulations! Your business listing has been approved and is now live on Maro Services Hub.';
+  }
+
+  if (business.status === 'rejected') {
+    return 'Your business listing was not approved. Please contact admin for more information.';
+  }
+
+  if (business.paymentStatus === 'verified') {
+    return 'Payment verified. Your listing is pending admin approval.';
+  }
+
+  if (business.paymentStatus === 'initialized') {
+    return 'Payment has been initialized. Complete Paystack payment so admin can review your listing.';
+  }
+
+  if (business.paymentStatus === 'failed') {
+    return 'Payment could not be verified. Please contact admin if you completed payment.';
+  }
+
+  return 'Your business was submitted. Please complete payment so admin can review your listing.';
+}
+
+const getBusinessOwnerStatus = asyncHandler(async (req, res) => {
+  const business = await Business.findById(req.params.id).select(
+    'name status paymentStatus paymentReference'
+  );
+
+  if (!business) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found.',
+    });
+  }
+
+  const reference = sanitizeString(req.query.reference || '');
+
+  if (
+    reference &&
+    business.paymentReference &&
+    reference !== business.paymentReference
+  ) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found for this payment reference.',
+    });
+  }
+
+  res.json({
+    success: true,
+    message: getOwnerStatusMessage(business),
+    data: {
+      _id: business._id,
+      id: business._id,
+      name: business.name,
+      status: business.status,
+      paymentStatus: business.paymentStatus,
+      isLive: business.status === 'approved' && business.paymentStatus === 'verified',
+    },
+  });
+});
+
 const createBusiness = asyncHandler(async (req, res) => {
   const profileImage = getUploadedFile(req, 'profileImage');
   const serviceImages = getUploadedFiles(req, 'serviceImages').map(buildImagePath);
@@ -407,6 +470,7 @@ module.exports = {
   createBusiness,
   deleteBusiness,
   getBusinessById,
+  getBusinessOwnerStatus,
   getBusinesses,
   getPendingBusinesses,
   rateBusiness,
