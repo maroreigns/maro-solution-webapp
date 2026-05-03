@@ -28,6 +28,10 @@ const businessSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    phoneVerified: {
+      type: Boolean,
+      default: false,
+    },
     email: {
       type: String,
       trim: true,

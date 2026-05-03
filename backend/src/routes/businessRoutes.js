@@ -6,12 +6,15 @@ const {
   deleteBusiness,
   getBusinessById,
   getBusinessOwnerStatus,
+  getBusinessReports,
   getBusinesses,
   getPendingBusinesses,
   rateBusiness,
+  reportBusiness,
   rejectBusiness,
   rejectPayment,
   updateBusiness,
+  verifyBusinessPhone,
   verifyPayment,
 } = require('../controllers/businessController');
 const { upload } = require('../middleware/upload');
@@ -73,13 +76,16 @@ router
     createBusiness
   );
 
-router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);
-router.post('/:id/comments', sanitizeRequestBody, addBusinessComment);
-router.get('/:id/owner-status', getBusinessOwnerStatus);
-
+router.get('/admin/reports', requireAdminAuth, getBusinessReports);
 router.get('/admin/pending', requireAdminAuth, getPendingBusinesses);
 
+router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);
+router.post('/:id/comments', sanitizeRequestBody, addBusinessComment);
+router.post('/:id/report', sanitizeRequestBody, reportBusiness);
+router.get('/:id/owner-status', getBusinessOwnerStatus);
+
 router.patch('/:id/verify-payment', requireAdminAuth, verifyPayment);
+router.patch('/:id/verify-phone', requireAdminAuth, verifyBusinessPhone);
 router.patch('/:id/reject-payment', requireAdminAuth, rejectPayment);
 router.patch('/:id/approve', requireAdminAuth, approveBusiness);
 router.patch('/:id/reject', requireAdminAuth, rejectBusiness);

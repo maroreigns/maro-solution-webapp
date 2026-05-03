@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { Business } = require('../models/Business');
+const { Report } = require('../models/Report');
 const { asyncHandler } = require('../utils/asyncHandler');
 const { sanitizeString } = require('../utils/sanitize');
 
@@ -216,6 +217,19 @@ const getPendingBusinesses = asyncHandler(async (req, res) => {
   });
 });
 
+const getBusinessReports = asyncHandler(async (req, res) => {
+  const reports = await Report.find({ status: 'pending' })
+    .populate('businessId', 'name phone category state localGovernment status phoneVerified')
+    .sort({ createdAt: -1 })
+    .limit(100);
+
+  res.json({
+    success: true,
+    count: reports.length,
+    data: reports,
+  });
+});
+
 async function updateApprovalState(req, res, updates, message) {
   const business = await Business.findById(req.params.id);
 
@@ -297,6 +311,26 @@ const approveBusiness = asyncHandler(async (req, res) => {
   return res.json({
     success: true,
     message: 'Business approved.',
+    data: business,
+  });
+});
+
+const verifyBusinessPhone = asyncHandler(async (req, res) => {
+  const business = await Business.findById(req.params.id);
+
+  if (!business) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found.',
+    });
+  }
+
+  business.phoneVerified = true;
+  await business.save();
+
+  return res.json({
+    success: true,
+    message: 'Phone marked as verified.',
     data: business,
   });
 });
@@ -464,6 +498,76 @@ const addBusinessComment = asyncHandler(async (req, res) => {
   });
 });
 
+const reportBusiness = asyncHandler(async (req, res) => {
+  const reason = sanitizeString(String(req.body.reason || ''));
+  const message = sanitizeString(String(req.body.message || ''));
+  const reporterName = sanitizeString(String(req.body.reporterName || ''));
+  const reporterContact = sanitizeString(String(req.body.reporterContact || ''));
+
+  if (!reason) {
+    return res.status(400).json({
+      success: false,
+      message: 'Report reason is required.',
+    });
+  }
+
+  if (reason.length > 120) {
+    return res.status(400).json({
+      success: false,
+      message: 'Report reason must be 120 characters or fewer.',
+    });
+  }
+
+  if (message.length > 1000) {
+    return res.status(400).json({
+      success: false,
+      message: 'Report message must be 1000 characters or fewer.',
+    });
+  }
+
+  if (reporterName.length > 80) {
+    return res.status(400).json({
+      success: false,
+      message: 'Reporter name must be 80 characters or fewer.',
+    });
+  }
+
+  if (reporterContact.length > 120) {
+    return res.status(400).json({
+      success: false,
+      message: 'Reporter contact must be 120 characters or fewer.',
+    });
+  }
+
+  const business = await Business.findOne({
+    _id: req.params.id,
+    status: 'approved',
+    paymentStatus: 'verified',
+  });
+
+  if (!business) {
+    return res.status(404).json({
+      success: false,
+      message: 'Business not found.',
+    });
+  }
+
+  const report = await Report.create({
+    businessId: business._id,
+    reason,
+    message,
+    reporterName,
+    reporterContact,
+    status: 'pending',
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Report submitted. Thank you for helping keep Maro Services Hub trusted.',
+    data: report,
+  });
+});
+
 module.exports = {
   addBusinessComment,
   approveBusiness,
@@ -471,11 +575,14 @@ module.exports = {
   deleteBusiness,
   getBusinessById,
   getBusinessOwnerStatus,
+  getBusinessReports,
   getBusinesses,
   getPendingBusinesses,
   rateBusiness,
+  reportBusiness,
   rejectBusiness,
   rejectPayment,
   updateBusiness,
+  verifyBusinessPhone,
   verifyPayment,
 };

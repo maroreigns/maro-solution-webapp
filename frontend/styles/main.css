@@ -435,6 +435,17 @@ textarea:focus-visible {
   object-fit: cover;
 }
 
+.profile-avatar-button {
+  padding: 0;
+  border-color: var(--bg-strong);
+}
+
+.verified-badge {
+  background: rgba(39, 174, 96, 0.12);
+  color: #167040;
+  border: 1px solid rgba(39, 174, 96, 0.24);
+}
+
 .provider-heading {
   min-width: 0;
 }
@@ -507,6 +518,21 @@ textarea:focus-visible {
   background: var(--bg-strong);
 }
 
+.admin-proof-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+  gap: 0.65rem;
+}
+
+.admin-proof-gallery img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  object-fit: cover;
+  background: var(--bg-strong);
+}
+
 .profile-comments {
   gap: 1rem;
 }
@@ -560,6 +586,10 @@ textarea:focus-visible {
 .admin-pending-list {
   display: grid;
   gap: 1rem;
+}
+
+.admin-reports-heading {
+  margin-top: 1.5rem;
 }
 
 .admin-login-shell {
@@ -733,6 +763,19 @@ textarea:focus-visible {
   border: 1px solid var(--border);
 }
 
+.image-preview {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.upload-preview-image {
+  width: 96px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  object-fit: cover;
+}
+
 .form-feedback.success {
   background: rgba(39, 174, 96, 0.12);
   color: #167040;
@@ -759,6 +802,48 @@ textarea:focus-visible {
 
 .owner-listing-status {
   margin: 1rem 0;
+}
+
+.profile-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.profile-lightbox-dialog {
+  position: relative;
+  max-width: min(92vw, 720px);
+  max-height: 88vh;
+}
+
+.profile-lightbox-dialog img {
+  max-height: 88vh;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  object-fit: contain;
+  background: var(--bg-strong);
+}
+
+.profile-lightbox-close {
+  position: absolute;
+  top: -0.75rem;
+  right: -0.75rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--bg-strong);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+body.has-open-lightbox {
+  overflow: hidden;
 }
 
 .results-meta {

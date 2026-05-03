@@ -334,6 +334,22 @@
       .replace(/'/g, '&#39;');
   }
 
+  function shouldShowVerifiedBadge(business) {
+    return Boolean(
+      business &&
+        business.status === 'approved' &&
+        business.phoneVerified === true
+    );
+  }
+
+  function createVerifiedBadge(business) {
+    if (!shouldShowVerifiedBadge(business)) {
+      return '';
+    }
+
+    return '<span class="tag verified-badge">Verified by Maro Services Hub</span>';
+  }
+
   function createAdminDeleteButton(business) {
     const businessId = getBusinessId(business);
 
@@ -342,6 +358,11 @@
     }
 
     return (
+      (business.phoneVerified
+        ? ''
+        : '<button class="button button-secondary admin-listing-action-button" type="button" data-admin-listing-action="verify-phone" data-admin-business-id="' +
+          escapeHtml(businessId) +
+          '">Verify Phone</button>') +
       '<button class="button button-danger admin-delete-button" type="button" data-delete-business-id="' +
       escapeHtml(businessId) +
       '">Delete</button>'
@@ -370,6 +391,7 @@
       '      <div class="provider-tags">',
       '        <span class="tag">' + escapeHtml(business.category) + '</span>',
       '        <span class="tag">' + escapeHtml(business.state) + '</span>',
+      '        ' + createVerifiedBadge(business),
       '      </div>',
       '    </div>',
       '  </div>',
@@ -401,9 +423,10 @@
     const fallbackLetter = firstLetterFromName(business.name);
     const serviceImages = Array.isArray(business.serviceImages) ? business.serviceImages : [];
     const comments = Array.isArray(business.comments) ? business.comments : [];
+    const profileImageUrl = resolveAssetUrl(business.profileImage);
     const profileMarkup = business.profileImage
       ? '<img src="' +
-        resolveAssetUrl(business.profileImage) +
+        profileImageUrl +
         '" alt="' +
         escapeHtml(business.name) +
         ' profile picture" data-avatar-fallback="' +
@@ -414,12 +437,21 @@
     return [
       '<article class="provider-card">',
       '  <div class="provider-top">',
-      '    <div class="provider-avatar" aria-hidden="' + (business.profileImage ? 'false' : 'true') + '">' + profileMarkup + '</div>',
+      business.profileImage
+        ? '    <button class="provider-avatar profile-avatar-button" type="button" data-profile-image-src="' +
+          escapeHtml(profileImageUrl) +
+          '" data-profile-image-alt="' +
+          escapeHtml(business.name + ' profile picture') +
+          '" aria-label="View larger profile picture">' +
+          profileMarkup +
+          '</button>'
+        : '    <div class="provider-avatar" aria-hidden="true">' + profileMarkup + '</div>',
       '    <div class="provider-heading">',
       '      <h3>' + escapeHtml(business.name) + '</h3>',
       '      <div class="provider-tags">',
       '        <span class="tag">' + escapeHtml(business.category) + '</span>',
       '        <span class="tag">' + escapeHtml(business.state) + '</span>',
+      '        ' + createVerifiedBadge(business),
       '      </div>',
       '    </div>',
       '  </div>',
@@ -465,9 +497,28 @@
       '    <a class="button button-secondary" href="tel:+' +
         normalizeWhatsapp(business.phone) +
         '">Call</a>',
+      '    <button class="button button-secondary" type="button" id="report-business-toggle">Report this business</button>',
       '  </div>',
+      '  <section class="profile-section trust-disclaimer"><p>Maro Services Hub verifies listings before approval. However, users are advised to confirm service details before booking them.</p></section>',
+      createReportForm(),
       createBusinessComments(comments),
       '</article>',
+    ].join('');
+  }
+
+  function createReportForm() {
+    return [
+      '<section class="profile-section report-section" id="report-business-section" hidden>',
+      '  <h4>Report this business</h4>',
+      '  <form class="comment-form" id="report-business-form">',
+      '    <div class="form-feedback" id="report-feedback" hidden></div>',
+      '    <label>Reason<input type="text" name="reason" maxlength="120" required /></label>',
+      '    <label>Message<textarea name="message" maxlength="1000" rows="4"></textarea></label>',
+      '    <label>Name<input type="text" name="reporterName" maxlength="80" /></label>',
+      '    <label>Contact<input type="text" name="reporterContact" maxlength="120" /></label>',
+      '    <button class="button button-primary" type="submit">Submit Report</button>',
+      '  </form>',
+      '</section>',
     ].join('');
   }
 
@@ -525,6 +576,73 @@
     ].join('');
   }
 
+  function createAdminProofImages(business) {
+    const images = [];
+
+    if (business.profileImage) {
+      images.push({
+        url: business.profileImage,
+        alt: business.name + ' profile picture',
+      });
+    }
+
+    (Array.isArray(business.serviceImages) ? business.serviceImages : []).forEach(function (imageUrl, index) {
+      images.push({
+        url: imageUrl,
+        alt: business.name + ' service photo ' + (index + 1),
+      });
+    });
+
+    if (!images.length) {
+      return '<div class="status-message">No photo proof uploaded yet.</div>';
+    }
+
+    return (
+      '<div class="admin-proof-gallery">' +
+      images
+        .map(function (image) {
+          return (
+            '<a href="' +
+            resolveAssetUrl(image.url) +
+            '" target="_blank" rel="noreferrer">' +
+            '<img src="' +
+            resolveAssetUrl(image.url) +
+            '" alt="' +
+            escapeHtml(image.alt) +
+            '" />' +
+            '</a>'
+          );
+        })
+        .join('') +
+      '</div>'
+    );
+  }
+
+  function createAdminReportCard(report) {
+    const business = report.businessId || {};
+    const createdAt = formatCommentDate(report.createdAt);
+
+    return [
+      '<article class="admin-pending-card">',
+      '  <div>',
+      '    <h3>' + escapeHtml(business.name || 'Reported business') + '</h3>',
+      '    <div class="provider-tags">',
+      '      <span class="tag">' + escapeHtml(report.status || 'pending') + '</span>',
+      business.phoneVerified ? '      <span class="tag verified-badge">Phone verified</span>' : '',
+      '    </div>',
+      '  </div>',
+      '  <div class="provider-meta">',
+      '    <span><strong>Reason:</strong> ' + escapeHtml(report.reason) + '</span>',
+      report.message ? '    <span><strong>Message:</strong> ' + escapeHtml(report.message) + '</span>' : '',
+      '    <span><strong>Business phone:</strong> ' + escapeHtml(business.phone || 'Not available') + '</span>',
+      report.reporterName ? '    <span><strong>Reporter:</strong> ' + escapeHtml(report.reporterName) + '</span>' : '',
+      report.reporterContact ? '    <span><strong>Reporter contact:</strong> ' + escapeHtml(report.reporterContact) + '</span>' : '',
+      createdAt ? '    <span><strong>Submitted:</strong> ' + escapeHtml(createdAt) + '</span>' : '',
+      '  </div>',
+      '</article>',
+    ].join('');
+  }
+
   function createPendingBusinessCard(business) {
     const businessId = getBusinessId(business);
 
@@ -536,6 +654,7 @@
       '      <span class="tag">' + escapeHtml(business.category) + '</span>',
       '      <span class="tag">' + escapeHtml(business.state) + '</span>',
       '      <span class="tag">' + escapeHtml(business.paymentStatus || 'unpaid') + '</span>',
+      business.phoneVerified ? '      <span class="tag verified-badge">Phone verified</span>' : '',
       '    </div>',
       '  </div>',
       '  <div class="provider-meta">',
@@ -544,9 +663,14 @@
       '    <span><strong>Email:</strong> ' + escapeHtml(business.email || 'Not provided') + '</span>',
       '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
       '    <span><strong>Payment reference:</strong> ' + escapeHtml(business.paymentReference || 'Not provided yet') + '</span>',
+      '    <span><strong>Phone verification:</strong> ' + (business.phoneVerified ? 'Verified' : 'Not verified') + '</span>',
       '  </div>',
+      '  <section class="profile-section"><h4>Photo proof</h4>' + createAdminProofImages(business) + '</section>',
       '  <div class="admin-action-row">',
       '    <button class="button button-primary admin-action-button" type="button" data-admin-action="verify-payment">Verify Payment</button>',
+      business.phoneVerified
+        ? ''
+        : '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="verify-phone">Verify Phone</button>',
       '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="approve">Approve</button>',
       '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="reject-payment">Reject Payment</button>',
       '    <button class="button button-danger admin-action-button" type="button" data-admin-action="reject">Reject</button>',
@@ -578,6 +702,68 @@
       },
       true
     );
+  }
+
+  function ensureProfileImageLightbox() {
+    let lightbox = document.getElementById('profile-image-lightbox');
+
+    if (lightbox) {
+      return lightbox;
+    }
+
+    lightbox = document.createElement('div');
+    lightbox.className = 'profile-lightbox';
+    lightbox.id = 'profile-image-lightbox';
+    lightbox.hidden = true;
+    lightbox.innerHTML = [
+      '<div class="profile-lightbox-dialog" role="dialog" aria-modal="true" aria-label="Profile picture preview">',
+      '  <button class="profile-lightbox-close" type="button" aria-label="Close profile picture preview">&times;</button>',
+      '  <img src="" alt="" />',
+      '</div>',
+    ].join('');
+    document.body.appendChild(lightbox);
+
+    lightbox.addEventListener('click', function (event) {
+      if (
+        event.target === lightbox ||
+        event.target.closest('.profile-lightbox-close')
+      ) {
+        closeProfileImageLightbox();
+      }
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !lightbox.hidden) {
+        closeProfileImageLightbox();
+      }
+    });
+
+    return lightbox;
+  }
+
+  function openProfileImageLightbox(src, alt) {
+    const lightbox = ensureProfileImageLightbox();
+    const image = lightbox.querySelector('img');
+
+    if (!image || !src) {
+      return;
+    }
+
+    image.src = src;
+    image.alt = alt || 'Profile picture';
+    lightbox.hidden = false;
+    document.body.classList.add('has-open-lightbox');
+  }
+
+  function closeProfileImageLightbox() {
+    const lightbox = document.getElementById('profile-image-lightbox');
+
+    if (!lightbox) {
+      return;
+    }
+
+    lightbox.hidden = true;
+    document.body.classList.remove('has-open-lightbox');
   }
 
   function getLiveDataUnavailableMessage() {
@@ -667,6 +853,23 @@
     return payload.data || null;
   }
 
+  async function submitBusinessReport(businessId, reportData) {
+    const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId) + '/report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(reportData),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to submit report.');
+    }
+
+    return payload;
+  }
+
   async function submitBusinessRating(businessId, ratingValue) {
     const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId) + '/rate', {
       method: 'POST',
@@ -736,6 +939,19 @@
 
     if (!response.ok) {
       throw new Error(payload.message || 'Unable to load pending businesses.');
+    }
+
+    return payload.data || [];
+  }
+
+  async function fetchBusinessReports() {
+    const response = await fetch(apiBaseUrl + '/admin/reports', {
+      headers: getAdminAuthHeaders(),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to load reports.');
     }
 
     return payload.data || [];
@@ -959,14 +1175,92 @@
       statusNode.textContent = error.message;
     }
 
+    profileNode.addEventListener('click', function (event) {
+      const reportToggle = event.target.closest('#report-business-toggle');
+      const profileImageButton = event.target.closest('.profile-avatar-button');
+
+      if (reportToggle) {
+        const reportSection = document.getElementById('report-business-section');
+
+        if (reportSection) {
+          reportSection.hidden = !reportSection.hidden;
+
+          if (!reportSection.hidden) {
+            const reasonInput = reportSection.querySelector('input[name="reason"]');
+            if (reasonInput) {
+              reasonInput.focus();
+            }
+          }
+        }
+        return;
+      }
+
+      if (profileImageButton) {
+        openProfileImageLightbox(
+          profileImageButton.dataset.profileImageSrc || '',
+          profileImageButton.dataset.profileImageAlt || ''
+        );
+      }
+    });
+
     profileNode.addEventListener('submit', async function (event) {
+      const reportForm = event.target.closest('#report-business-form');
       const form = event.target.closest('#comment-form');
 
-      if (!form) {
+      if (!form && !reportForm) {
         return;
       }
 
       event.preventDefault();
+
+      if (reportForm) {
+        const feedback = document.getElementById('report-feedback');
+        const submitButton = reportForm.querySelector('button[type="submit"]');
+        const formData = new FormData(reportForm);
+        const reason = String(formData.get('reason') || '').trim();
+        const message = String(formData.get('message') || '').trim();
+        const reporterName = String(formData.get('reporterName') || '').trim();
+        const reporterContact = String(formData.get('reporterContact') || '').trim();
+
+        if (feedback) {
+          feedback.hidden = true;
+          feedback.className = 'form-feedback';
+        }
+
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = 'Submitting...';
+        }
+
+        try {
+          const payload = await submitBusinessReport(businessId, {
+            reason: reason,
+            message: message,
+            reporterName: reporterName,
+            reporterContact: reporterContact,
+          });
+
+          reportForm.reset();
+
+          if (feedback) {
+            feedback.hidden = false;
+            feedback.classList.add('success');
+            feedback.textContent = payload.message || 'Report submitted.';
+          }
+        } catch (error) {
+          if (feedback) {
+            feedback.hidden = false;
+            feedback.classList.add('error');
+            feedback.textContent = error.message;
+          }
+        } finally {
+          if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Submit Report';
+          }
+        }
+        return;
+      }
 
       const feedback = document.getElementById('comment-feedback');
       const submitButton = form.querySelector('button[type="submit"]');
@@ -1030,8 +1324,11 @@
     const adminToggle = document.getElementById('admin-toggle');
     const adminPanel = document.getElementById('admin-panel');
     const adminRefresh = document.getElementById('admin-refresh');
+    const adminReportsRefresh = document.getElementById('admin-reports-refresh');
     const adminPendingMeta = document.getElementById('admin-pending-meta');
     const adminPendingList = document.getElementById('admin-pending-list');
+    const adminReportsMeta = document.getElementById('admin-reports-meta');
+    const adminReportList = document.getElementById('admin-report-list');
     const searchParams = new URLSearchParams(window.location.search);
     const paymentReference = searchParams.get('reference') || searchParams.get('trxref') || '';
     const shouldVerifyPayment = searchParams.get('payment') === 'success' || Boolean(paymentReference);
@@ -1287,6 +1584,10 @@
         adminRefresh.hidden = !adminEnabled;
       }
 
+      if (adminReportsRefresh) {
+        adminReportsRefresh.hidden = !adminEnabled;
+      }
+
       if (loginForm) {
         loginForm.hidden = adminEnabled;
       }
@@ -1306,6 +1607,14 @@
 
       if (adminPendingList && !adminEnabled) {
         adminPendingList.innerHTML = '';
+      }
+
+      if (adminReportsMeta && !adminEnabled) {
+        adminReportsMeta.textContent = 'Log in to view reports.';
+      }
+
+      if (adminReportList && !adminEnabled) {
+        adminReportList.innerHTML = '';
       }
     }
 
@@ -1339,6 +1648,36 @@
       }
     }
 
+    async function loadReportQueue() {
+      if (!adminReportsMeta || !adminReportList || !isAdminLoggedIn()) {
+        return;
+      }
+
+      adminReportsMeta.textContent = 'Loading reports...';
+      adminReportList.innerHTML = '';
+
+      try {
+        const reports = await fetchBusinessReports();
+
+        if (!reports.length) {
+          adminReportsMeta.textContent = 'No business reports yet.';
+          return;
+        }
+
+        adminReportsMeta.textContent =
+          reports.length + ' report' + (reports.length === 1 ? '' : 's') + ' submitted.';
+        adminReportList.innerHTML = reports.map(createAdminReportCard).join('');
+      } catch (error) {
+        adminReportsMeta.textContent = error.message;
+        if (/authentication|required|expired/i.test(error.message)) {
+          sessionStorage.removeItem(adminJwtStorageKey);
+          currentAdmin = null;
+          refreshAdminButton();
+          runSearch();
+        }
+      }
+    }
+
     filterForm.addEventListener('submit', function (event) {
       event.preventDefault();
       runSearch();
@@ -1361,6 +1700,7 @@
 
         if (isAdminLoggedIn()) {
           loadPendingQueue();
+          loadReportQueue();
           return;
         }
 
@@ -1399,6 +1739,7 @@
           adminLoginForm.reset();
           refreshAdminButton();
           await loadPendingQueue();
+          await loadReportQueue();
           await runSearch();
           setAdminFeedback('Admin login successful.', false);
         } catch (error) {
@@ -1428,6 +1769,10 @@
 
     if (adminRefresh) {
       adminRefresh.addEventListener('click', loadPendingQueue);
+    }
+
+    if (adminReportsRefresh) {
+      adminReportsRefresh.addEventListener('click', loadReportQueue);
     }
 
     async function handleAdminDeleteClick(deleteButton) {
@@ -1460,11 +1805,43 @@
     listingsGrid.addEventListener('click', async function (event) {
       const deleteButton = event.target.closest('.admin-delete-button');
 
-      if (!deleteButton) {
+      if (deleteButton) {
+        handleAdminDeleteClick(deleteButton);
         return;
       }
 
-      handleAdminDeleteClick(deleteButton);
+      const actionButton = event.target.closest('.admin-listing-action-button');
+
+      if (!actionButton) {
+        return;
+      }
+
+      const businessId = actionButton.dataset.adminBusinessId;
+      const action = actionButton.dataset.adminListingAction;
+
+      if (!businessId || !action || !isAdminLoggedIn()) {
+        refreshAdminButton();
+        return;
+      }
+
+      const shouldContinue = window.confirm('Continue with this admin action?');
+      if (!shouldContinue) {
+        return;
+      }
+
+      actionButton.disabled = true;
+      actionButton.textContent = 'Working...';
+
+      try {
+        await runAdminBusinessAction(businessId, action);
+        await loadPendingQueue();
+        await loadReportQueue();
+        await runSearch();
+      } catch (error) {
+        window.alert(error.message);
+        actionButton.disabled = false;
+        actionButton.textContent = action.replace('-', ' ');
+      }
     });
 
     if (adminPendingList) {
@@ -1502,6 +1879,7 @@
         try {
           await runAdminBusinessAction(businessId, action);
           await loadPendingQueue();
+          await loadReportQueue();
           await runSearch();
         } catch (error) {
           window.alert(error.message);
@@ -1521,6 +1899,7 @@
           currentAdmin = await fetchCurrentAdmin();
           refreshAdminButton();
           await loadPendingQueue();
+          await loadReportQueue();
           await runSearch();
         } catch (error) {
           sessionStorage.removeItem(adminJwtStorageKey);
@@ -1549,6 +1928,7 @@
     const submittedPaymentReference = document.getElementById('submitted-payment-reference');
     const payListingFeeButton = document.getElementById('pay-listing-fee');
     let submittedBusinessId = '';
+    let profilePreviewUrl = '';
 
     populateSelect(document.getElementById('business-category'), appData.businessCategories, 'Select category');
     wireStateAndLgaSelects(
@@ -1559,7 +1939,24 @@
 
     imageInput.addEventListener('change', function () {
       const file = imageInput.files && imageInput.files[0];
-      previewNode.textContent = file ? 'Selected image: ' + file.name : 'No image selected yet.';
+
+      if (profilePreviewUrl) {
+        URL.revokeObjectURL(profilePreviewUrl);
+        profilePreviewUrl = '';
+      }
+
+      if (!file) {
+        previewNode.textContent = 'No image selected yet.';
+        return;
+      }
+
+      profilePreviewUrl = URL.createObjectURL(file);
+      previewNode.innerHTML =
+        '<img class="upload-preview-image" src="' +
+        profilePreviewUrl +
+        '" alt="Selected profile picture preview" /><span>Selected image: ' +
+        escapeHtml(file.name) +
+        '</span>';
     });
 
     if (serviceImagesInput && serviceImagesPreviewNode) {
@@ -1653,6 +2050,10 @@
 
         form.hidden = true;
         form.reset();
+        if (profilePreviewUrl) {
+          URL.revokeObjectURL(profilePreviewUrl);
+          profilePreviewUrl = '';
+        }
         previewNode.textContent = 'No image selected yet.';
         if (serviceImagesPreviewNode) {
           serviceImagesPreviewNode.textContent = 'No service photos selected yet.';
