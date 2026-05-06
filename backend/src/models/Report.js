@@ -34,7 +34,7 @@ const reportSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending'],
+      enum: ['pending', 'resolved'],
       default: 'pending',
       index: true,
     },

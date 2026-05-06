@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 const { Business } = require('../models/Business');
 const { Report } = require('../models/Report');
 const { asyncHandler } = require('../utils/asyncHandler');
@@ -230,6 +231,62 @@ const getBusinessReports = asyncHandler(async (req, res) => {
   });
 });
 
+function isValidObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
+const resolveBusinessReport = asyncHandler(async (req, res) => {
+  if (!isValidObjectId(req.params.id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid report ID.',
+    });
+  }
+
+  const report = await Report.findById(req.params.id);
+
+  if (!report) {
+    return res.status(404).json({
+      success: false,
+      message: 'Report not found.',
+    });
+  }
+
+  report.status = 'resolved';
+  await report.save();
+
+  return res.json({
+    success: true,
+    message: 'Report marked as resolved.',
+    data: report,
+  });
+});
+
+const deleteBusinessReport = asyncHandler(async (req, res) => {
+  if (!isValidObjectId(req.params.id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid report ID.',
+    });
+  }
+
+  const report = await Report.findById(req.params.id);
+
+  if (!report) {
+    return res.status(404).json({
+      success: false,
+      message: 'Report not found.',
+    });
+  }
+
+  await report.deleteOne();
+
+  return res.json({
+    success: true,
+    message: 'Report deleted successfully.',
+  });
+});
+
 async function updateApprovalState(req, res, updates, message) {
   const business = await Business.findById(req.params.id);
 
@@ -399,6 +456,7 @@ const deleteBusiness = asyncHandler(async (req, res) => {
     cleanupUploadedFile(business.profileImage);
   }
 
+  await Report.deleteMany({ businessId: business._id });
   await business.deleteOne();
 
   res.json({
@@ -573,6 +631,7 @@ module.exports = {
   approveBusiness,
   createBusiness,
   deleteBusiness,
+  deleteBusinessReport,
   getBusinessById,
   getBusinessOwnerStatus,
   getBusinessReports,
@@ -580,6 +639,7 @@ module.exports = {
   getPendingBusinesses,
   rateBusiness,
   reportBusiness,
+  resolveBusinessReport,
   rejectBusiness,
   rejectPayment,
   updateBusiness,

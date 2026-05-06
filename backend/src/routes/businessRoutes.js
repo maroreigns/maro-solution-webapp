@@ -4,6 +4,7 @@ const {
   approveBusiness,
   createBusiness,
   deleteBusiness,
+  deleteBusinessReport,
   getBusinessById,
   getBusinessOwnerStatus,
   getBusinessReports,
@@ -11,6 +12,7 @@ const {
   getPendingBusinesses,
   rateBusiness,
   reportBusiness,
+  resolveBusinessReport,
   rejectBusiness,
   rejectPayment,
   updateBusiness,
@@ -77,6 +79,8 @@ router
   );
 
 router.get('/admin/reports', requireAdminAuth, getBusinessReports);
+router.patch('/admin/reports/:id/resolve', requireAdminAuth, resolveBusinessReport);
+router.delete('/admin/reports/:id', adminDeleteLimiter, requireAdminAuth, deleteBusinessReport);
 router.get('/admin/pending', requireAdminAuth, getPendingBusinesses);
 
 router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);

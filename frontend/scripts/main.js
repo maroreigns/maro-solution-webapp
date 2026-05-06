@@ -621,9 +621,10 @@
   function createAdminReportCard(report) {
     const business = report.businessId || {};
     const createdAt = formatCommentDate(report.createdAt);
+    const reportId = String(report._id || report.id || '');
 
     return [
-      '<article class="admin-pending-card">',
+      '<article class="admin-pending-card" data-admin-report-id="' + escapeHtml(reportId) + '">',
       '  <div>',
       '    <h3>' + escapeHtml(business.name || 'Reported business') + '</h3>',
       '    <div class="provider-tags">',
@@ -638,6 +639,12 @@
       report.reporterName ? '    <span><strong>Reporter:</strong> ' + escapeHtml(report.reporterName) + '</span>' : '',
       report.reporterContact ? '    <span><strong>Reporter contact:</strong> ' + escapeHtml(report.reporterContact) + '</span>' : '',
       createdAt ? '    <span><strong>Submitted:</strong> ' + escapeHtml(createdAt) + '</span>' : '',
+      '  </div>',
+      '  <div class="admin-action-row">',
+      report.status === 'resolved'
+        ? ''
+        : '    <button class="button button-primary admin-report-action-button" type="button" data-admin-report-action="resolve">Mark Resolved</button>',
+      '    <button class="button button-danger admin-report-action-button" type="button" data-admin-report-action="delete">Delete Report</button>',
       '  </div>',
       '</article>',
     ].join('');
@@ -955,6 +962,37 @@
     }
 
     return payload.data || [];
+  }
+
+  async function resolveBusinessReport(reportId) {
+    const response = await fetch(
+      apiBaseUrl + '/admin/reports/' + encodeURIComponent(reportId) + '/resolve',
+      {
+        method: 'PATCH',
+        headers: getAdminAuthHeaders(),
+      }
+    );
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to resolve report.');
+    }
+
+    return payload;
+  }
+
+  async function deleteBusinessReport(reportId) {
+    const response = await fetch(apiBaseUrl + '/admin/reports/' + encodeURIComponent(reportId), {
+      method: 'DELETE',
+      headers: getAdminAuthHeaders(),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to delete report.');
+    }
+
+    return payload;
   }
 
   async function runAdminBusinessAction(businessId, action) {
@@ -1775,6 +1813,49 @@
       adminReportsRefresh.addEventListener('click', loadReportQueue);
     }
 
+    if (adminReportList) {
+      adminReportList.addEventListener('click', async function (event) {
+        const actionButton = event.target.closest('.admin-report-action-button');
+
+        if (!actionButton) {
+          return;
+        }
+
+        const card = actionButton.closest('[data-admin-report-id]');
+        const reportId = card ? card.dataset.adminReportId : '';
+        const action = actionButton.dataset.adminReportAction;
+
+        if (!reportId || !action || !isAdminLoggedIn()) {
+          refreshAdminButton();
+          return;
+        }
+
+        if (action === 'delete') {
+          const shouldDelete = window.confirm('Delete this report permanently?');
+          if (!shouldDelete) {
+            return;
+          }
+        }
+
+        actionButton.disabled = true;
+        actionButton.textContent = action === 'delete' ? 'Deleting...' : 'Resolving...';
+
+        try {
+          if (action === 'delete') {
+            await deleteBusinessReport(reportId);
+          } else {
+            await resolveBusinessReport(reportId);
+          }
+
+          await loadReportQueue();
+        } catch (error) {
+          window.alert(error.message);
+          actionButton.disabled = false;
+          actionButton.textContent = action === 'delete' ? 'Delete Report' : 'Mark Resolved';
+        }
+      });
+    }
+
     async function handleAdminDeleteClick(deleteButton) {
       const businessId = deleteButton.dataset.deleteBusinessId;
 
@@ -1795,6 +1876,7 @@
         await deleteBusiness(businessId);
         await runSearch();
         await loadPendingQueue();
+        await loadReportQueue();
       } catch (error) {
         window.alert(error.message);
         deleteButton.disabled = false;
