@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { Business } = require('../models/Business');
 const { asyncHandler } = require('../utils/asyncHandler');
+const { escapeHtml, sendEmail } = require('../utils/email');
 const { sanitizeString } = require('../utils/sanitize');
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
@@ -120,6 +121,8 @@ async function verifyAndSavePayment(reference) {
     throw error;
   }
 
+  const wasPaymentVerified = business.paymentStatus === 'verified';
+
   business.paymentStatus = 'verified';
   business.paymentReference = cleanReference;
   business.amountPaid = Number(paystackData.amount) / 100;
@@ -130,6 +133,25 @@ async function verifyAndSavePayment(reference) {
   }
 
   await business.save();
+
+  if (!wasPaymentVerified && business.email) {
+    const businessName = business.name || 'there';
+    const text = `Hello ${businessName},
+
+Your listing payment has been confirmed.
+Your business listing is now waiting for admin review and approval.
+We will notify you once your listing is approved.`;
+
+    sendEmail({
+      to: business.email,
+      subject: 'Payment confirmed - Maro Services Hub',
+      text,
+      html: `<p>Hello ${escapeHtml(businessName)},</p>
+<p>Your listing payment has been confirmed.</p>
+<p>Your business listing is now waiting for admin review and approval.</p>
+<p>We will notify you once your listing is approved.</p>`,
+    });
+  }
 
   return business;
 }

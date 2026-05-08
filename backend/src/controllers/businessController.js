@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { Business } = require('../models/Business');
 const { Report } = require('../models/Report');
 const { asyncHandler } = require('../utils/asyncHandler');
+const { escapeHtml, sendEmail } = require('../utils/email');
 const { sanitizeString } = require('../utils/sanitize');
 
 function buildImagePath(file) {
@@ -287,7 +288,7 @@ const deleteBusinessReport = asyncHandler(async (req, res) => {
   });
 });
 
-async function updateApprovalState(req, res, updates, message) {
+async function updateApprovalState(req, res, updates, message, onUpdated) {
   const business = await Business.findById(req.params.id);
 
   if (!business) {
@@ -297,13 +298,60 @@ async function updateApprovalState(req, res, updates, message) {
     });
   }
 
+  const previousStatus = business.status;
   Object.assign(business, updates);
   await business.save();
+
+  if (typeof onUpdated === 'function') {
+    onUpdated(business, { previousStatus });
+  }
 
   return res.json({
     success: true,
     message,
     data: business,
+  });
+}
+
+function sendApprovalEmail(business) {
+  if (!business.email) {
+    return;
+  }
+
+  const businessName = business.name || 'there';
+  const text = `Hello ${businessName},
+
+Congratulations! Your business listing has been approved and is now live on Maro Services Hub.
+Customers can now find your business and contact you directly through WhatsApp or phone.`;
+
+  sendEmail({
+    to: business.email,
+    subject: 'Your listing is now live on Maro Services Hub',
+    text,
+    html: `<p>Hello ${escapeHtml(businessName)},</p>
+<p>Congratulations! Your business listing has been approved and is now live on Maro Services Hub.</p>
+<p>Customers can now find your business and contact you directly through WhatsApp or phone.</p>`,
+  });
+}
+
+function sendRejectionEmail(business, state = {}) {
+  if (!business.email || state.previousStatus === 'rejected') {
+    return;
+  }
+
+  const businessName = business.name || 'there';
+  const text = `Hello ${businessName},
+
+Your business listing was not approved at this time.
+Please contact Maro Services Hub support for more information.`;
+
+  sendEmail({
+    to: business.email,
+    subject: 'Update on your Maro Services Hub listing',
+    text,
+    html: `<p>Hello ${escapeHtml(businessName)},</p>
+<p>Your business listing was not approved at this time.</p>
+<p>Please contact Maro Services Hub support for more information.</p>`,
   });
 }
 
@@ -362,8 +410,13 @@ const approveBusiness = asyncHandler(async (req, res) => {
     });
   }
 
+  const previousStatus = business.status;
   business.status = 'approved';
   await business.save();
+
+  if (previousStatus !== 'approved') {
+    sendApprovalEmail(business);
+  }
 
   return res.json({
     success: true,
@@ -399,7 +452,8 @@ const rejectBusiness = asyncHandler(async (req, res) =>
     {
       status: 'rejected',
     },
-    'Business rejected.'
+    'Business rejected.',
+    sendRejectionEmail
   )
 );
 
@@ -618,6 +672,30 @@ const reportBusiness = asyncHandler(async (req, res) => {
     reporterContact,
     status: 'pending',
   });
+
+  if (process.env.ADMIN_NOTIFICATION_EMAIL) {
+    const text = `New business report submitted
+
+Business name: ${business.name || ''}
+Report reason: ${reason}
+Report message: ${message || ''}
+Reporter name: ${reporterName || 'Not provided'}
+Reporter contact: ${reporterContact || 'Not provided'}`;
+
+    sendEmail({
+      to: process.env.ADMIN_NOTIFICATION_EMAIL,
+      subject: 'New business report submitted',
+      text,
+      html: `<p>New business report submitted</p>
+<ul>
+  <li><strong>Business name:</strong> ${escapeHtml(business.name || '')}</li>
+  <li><strong>Report reason:</strong> ${escapeHtml(reason)}</li>
+  <li><strong>Report message:</strong> ${escapeHtml(message || '')}</li>
+  <li><strong>Reporter name:</strong> ${escapeHtml(reporterName || 'Not provided')}</li>
+  <li><strong>Reporter contact:</strong> ${escapeHtml(reporterContact || 'Not provided')}</li>
+</ul>`,
+    });
+  }
 
   res.status(201).json({
     success: true,
