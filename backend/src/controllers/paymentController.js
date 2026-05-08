@@ -134,6 +134,8 @@ async function verifyAndSavePayment(reference) {
 
   await business.save();
 
+  console.log(`[email-hook] payment verification reached for ${business._id}.`);
+
   if (!wasPaymentVerified && business.email) {
     const businessName = business.name || 'there';
     const text = `Hello ${businessName},
@@ -142,7 +144,7 @@ Your listing payment has been confirmed.
 Your business listing is now waiting for admin review and approval.
 We will notify you once your listing is approved.`;
 
-    sendEmail({
+    await sendEmail({
       to: business.email,
       subject: 'Payment confirmed - Maro Services Hub',
       text,
@@ -151,6 +153,10 @@ We will notify you once your listing is approved.`;
 <p>Your business listing is now waiting for admin review and approval.</p>
 <p>We will notify you once your listing is approved.</p>`,
     });
+  } else if (wasPaymentVerified) {
+    console.warn(`[email-hook] payment verification skipped for ${business._id}: already verified.`);
+  } else {
+    console.warn(`[email-hook] payment verification skipped for ${business._id}: business email is missing.`);
   }
 
   return business;

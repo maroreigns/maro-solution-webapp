@@ -438,9 +438,9 @@
       '<article class="provider-card">',
       '  <div class="provider-top">',
       business.profileImage
-        ? '    <button class="provider-avatar profile-avatar-button" type="button" data-profile-image-src="' +
+        ? '    <button class="provider-avatar profile-avatar-button image-lightbox-trigger" type="button" data-lightbox-src="' +
           escapeHtml(profileImageUrl) +
-          '" data-profile-image-alt="' +
+          '" data-lightbox-alt="' +
           escapeHtml(business.name + ' profile picture') +
           '" aria-label="View larger profile picture">' +
           profileMarkup +
@@ -470,14 +470,24 @@
         ? '  <section class="profile-section"><h4>Service photos</h4><div class="service-gallery">' +
           serviceImages
             .map(function (imageUrl, index) {
+              const serviceImageUrl = resolveAssetUrl(imageUrl);
+              const serviceImageAlt =
+                business.name + ' service photo ' + (index + 1);
+
               return (
-                '<img src="' +
-                resolveAssetUrl(imageUrl) +
-                '" alt="' +
-                escapeHtml(business.name) +
-                ' service photo ' +
+                '<button class="service-gallery-button image-lightbox-trigger" type="button" data-lightbox-src="' +
+                escapeHtml(serviceImageUrl) +
+                '" data-lightbox-alt="' +
+                escapeHtml(serviceImageAlt) +
+                '" aria-label="View larger service photo ' +
                 (index + 1) +
-                '" />'
+                '">' +
+                '<img src="' +
+                serviceImageUrl +
+                '" alt="' +
+                escapeHtml(serviceImageAlt) +
+                '" />' +
+                '</button>'
               );
             })
             .join('') +
@@ -711,7 +721,7 @@
     );
   }
 
-  function ensureProfileImageLightbox() {
+  function ensureImageLightbox() {
     let lightbox = document.getElementById('profile-image-lightbox');
 
     if (lightbox) {
@@ -723,8 +733,8 @@
     lightbox.id = 'profile-image-lightbox';
     lightbox.hidden = true;
     lightbox.innerHTML = [
-      '<div class="profile-lightbox-dialog" role="dialog" aria-modal="true" aria-label="Profile picture preview">',
-      '  <button class="profile-lightbox-close" type="button" aria-label="Close profile picture preview">&times;</button>',
+      '<div class="profile-lightbox-dialog" role="dialog" aria-modal="true" aria-label="Image preview">',
+      '  <button class="profile-lightbox-close" type="button" aria-label="Close image preview">&times;</button>',
       '  <img src="" alt="" />',
       '</div>',
     ].join('');
@@ -735,21 +745,21 @@
         event.target === lightbox ||
         event.target.closest('.profile-lightbox-close')
       ) {
-        closeProfileImageLightbox();
+        closeImageLightbox();
       }
     });
 
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && !lightbox.hidden) {
-        closeProfileImageLightbox();
+        closeImageLightbox();
       }
     });
 
     return lightbox;
   }
 
-  function openProfileImageLightbox(src, alt) {
-    const lightbox = ensureProfileImageLightbox();
+  function openImageLightbox(src, alt) {
+    const lightbox = ensureImageLightbox();
     const image = lightbox.querySelector('img');
 
     if (!image || !src) {
@@ -757,12 +767,12 @@
     }
 
     image.src = src;
-    image.alt = alt || 'Profile picture';
+    image.alt = alt || 'Image preview';
     lightbox.hidden = false;
     document.body.classList.add('has-open-lightbox');
   }
 
-  function closeProfileImageLightbox() {
+  function closeImageLightbox() {
     const lightbox = document.getElementById('profile-image-lightbox');
 
     if (!lightbox) {
@@ -1215,7 +1225,7 @@
 
     profileNode.addEventListener('click', function (event) {
       const reportToggle = event.target.closest('#report-business-toggle');
-      const profileImageButton = event.target.closest('.profile-avatar-button');
+      const lightboxTrigger = event.target.closest('.image-lightbox-trigger');
 
       if (reportToggle) {
         const reportSection = document.getElementById('report-business-section');
@@ -1233,10 +1243,10 @@
         return;
       }
 
-      if (profileImageButton) {
-        openProfileImageLightbox(
-          profileImageButton.dataset.profileImageSrc || '',
-          profileImageButton.dataset.profileImageAlt || ''
+      if (lightboxTrigger) {
+        openImageLightbox(
+          lightboxTrigger.dataset.lightboxSrc || '',
+          lightboxTrigger.dataset.lightboxAlt || ''
         );
       }
     });

@@ -440,6 +440,10 @@ textarea:focus-visible {
   border-color: var(--bg-strong);
 }
 
+.image-lightbox-trigger {
+  cursor: pointer;
+}
+
 .verified-badge {
   background: rgba(39, 174, 96, 0.12);
   color: #167040;
@@ -516,6 +520,21 @@ textarea:focus-visible {
   border: 1px solid var(--border);
   object-fit: cover;
   background: var(--bg-strong);
+}
+
+.service-gallery-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+
+.service-gallery-button:focus-visible,
+.profile-avatar-button:focus-visible {
+  outline: 3px solid rgba(14, 99, 255, 0.28);
+  outline-offset: 3px;
 }
 
 .admin-proof-gallery {

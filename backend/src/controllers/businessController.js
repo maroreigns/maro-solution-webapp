@@ -303,7 +303,7 @@ async function updateApprovalState(req, res, updates, message, onUpdated) {
   await business.save();
 
   if (typeof onUpdated === 'function') {
-    onUpdated(business, { previousStatus });
+    await onUpdated(business, { previousStatus });
   }
 
   return res.json({
@@ -313,8 +313,11 @@ async function updateApprovalState(req, res, updates, message, onUpdated) {
   });
 }
 
-function sendApprovalEmail(business) {
+async function sendApprovalEmail(business) {
+  console.log(`[email-hook] approve business reached for ${business._id}.`);
+
   if (!business.email) {
+    console.warn(`[email-hook] approve business skipped for ${business._id}: business email is missing.`);
     return;
   }
 
@@ -324,7 +327,7 @@ function sendApprovalEmail(business) {
 Congratulations! Your business listing has been approved and is now live on Maro Services Hub.
 Customers can now find your business and contact you directly through WhatsApp or phone.`;
 
-  sendEmail({
+  await sendEmail({
     to: business.email,
     subject: 'Your listing is now live on Maro Services Hub',
     text,
@@ -334,8 +337,16 @@ Customers can now find your business and contact you directly through WhatsApp o
   });
 }
 
-function sendRejectionEmail(business, state = {}) {
-  if (!business.email || state.previousStatus === 'rejected') {
+async function sendRejectionEmail(business, state = {}) {
+  console.log(`[email-hook] reject business reached for ${business._id}.`);
+
+  if (state.previousStatus === 'rejected') {
+    console.warn(`[email-hook] reject business skipped for ${business._id}: already rejected.`);
+    return;
+  }
+
+  if (!business.email) {
+    console.warn(`[email-hook] reject business skipped for ${business._id}: business email is missing.`);
     return;
   }
 
@@ -345,7 +356,7 @@ function sendRejectionEmail(business, state = {}) {
 Your business listing was not approved at this time.
 Please contact Maro Services Hub support for more information.`;
 
-  sendEmail({
+  await sendEmail({
     to: business.email,
     subject: 'Update on your Maro Services Hub listing',
     text,
@@ -415,7 +426,9 @@ const approveBusiness = asyncHandler(async (req, res) => {
   await business.save();
 
   if (previousStatus !== 'approved') {
-    sendApprovalEmail(business);
+    await sendApprovalEmail(business);
+  } else {
+    console.warn(`[email-hook] approve business skipped for ${business._id}: already approved.`);
   }
 
   return res.json({
@@ -673,8 +686,9 @@ const reportBusiness = asyncHandler(async (req, res) => {
     status: 'pending',
   });
 
-  if (process.env.ADMIN_NOTIFICATION_EMAIL) {
-    const text = `New business report submitted
+  console.log(`[email-hook] report business reached for ${business._id}; report ${report._id} created.`);
+
+  const text = `New business report submitted
 
 Business name: ${business.name || ''}
 Report reason: ${reason}
@@ -682,11 +696,11 @@ Report message: ${message || ''}
 Reporter name: ${reporterName || 'Not provided'}
 Reporter contact: ${reporterContact || 'Not provided'}`;
 
-    sendEmail({
-      to: process.env.ADMIN_NOTIFICATION_EMAIL,
-      subject: 'New business report submitted',
-      text,
-      html: `<p>New business report submitted</p>
+  await sendEmail({
+    to: process.env.ADMIN_NOTIFICATION_EMAIL,
+    subject: 'New business report submitted',
+    text,
+    html: `<p>New business report submitted</p>
 <ul>
   <li><strong>Business name:</strong> ${escapeHtml(business.name || '')}</li>
   <li><strong>Report reason:</strong> ${escapeHtml(reason)}</li>
@@ -694,8 +708,7 @@ Reporter contact: ${reporterContact || 'Not provided'}`;
   <li><strong>Reporter name:</strong> ${escapeHtml(reporterName || 'Not provided')}</li>
   <li><strong>Reporter contact:</strong> ${escapeHtml(reporterContact || 'Not provided')}</li>
 </ul>`,
-    });
-  }
+  });
 
   res.status(201).json({
     success: true,
