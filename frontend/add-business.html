@@ -59,6 +59,24 @@
 
           <form class="business-form card" id="business-form" enctype="multipart/form-data">
             <div class="form-feedback" id="form-feedback" hidden></div>
+            <div class="submission-loading" id="submission-loading" role="status" aria-live="polite" hidden>
+              <div class="submission-mascot" aria-hidden="true">
+                <svg viewBox="0 0 120 96" focusable="false">
+                  <path class="mascot-tail" d="M88 58c17-3 22 9 13 18" />
+                  <path class="mascot-body" d="M31 82c-6-21 4-43 29-43s35 22 29 43H31Z" />
+                  <path class="mascot-head" d="M29 42 38 20l13 12c3-1 6-1 9-1s6 0 9 1l13-12 9 22c4 5 6 11 6 18 0 18-15 30-37 30S23 78 23 60c0-7 2-13 6-18Z" />
+                  <circle class="mascot-eye" cx="48" cy="57" r="4" />
+                  <circle class="mascot-eye" cx="72" cy="57" r="4" />
+                  <path class="mascot-face" d="M57 66c2 2 4 3 6 0m-6 0c-2 2-4 3-6 0" />
+                  <path class="mascot-whisker" d="M42 66H28m50 0h14M43 72l-12 5m46-5 12 5" />
+                  <path class="mascot-note" d="M96 24h14v22H96zM99 31h8M99 38h8" />
+                </svg>
+              </div>
+              <div>
+                <strong>Submitting your business...</strong>
+                <span>Please wait while we prepare your listing.</span>
+              </div>
+            </div>
 
             <label>
               Full name or business name

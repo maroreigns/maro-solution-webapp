@@ -2012,6 +2012,7 @@
     const form = document.getElementById('business-form');
     const feedback = document.getElementById('form-feedback');
     const submitButton = document.getElementById('submit-button');
+    const submissionLoading = document.getElementById('submission-loading');
     const imageInput = document.getElementById('profile-image');
     const serviceImagesInput = document.getElementById('service-images');
     const previewNode = document.getElementById('image-preview');
@@ -2021,6 +2022,12 @@
     const payListingFeeButton = document.getElementById('pay-listing-fee');
     let submittedBusinessId = '';
     let profilePreviewUrl = '';
+
+    function setSubmissionLoading(isLoading) {
+      if (submissionLoading) {
+        submissionLoading.hidden = !isLoading;
+      }
+    }
 
     populateSelect(document.getElementById('business-category'), appData.businessCategories, 'Select category');
     wireStateAndLgaSelects(
@@ -2078,8 +2085,10 @@
       feedback.className = 'form-feedback';
       submitButton.disabled = true;
       submitButton.textContent = 'Submitting...';
+      setSubmissionLoading(true);
 
       if (isFileProtocol) {
+        setSubmissionLoading(false);
         feedback.hidden = false;
         feedback.classList.add('error');
         feedback.textContent =
@@ -2155,6 +2164,7 @@
         feedback.classList.add('error');
         feedback.textContent = error.message;
       } finally {
+        setSubmissionLoading(false);
         submitButton.disabled = false;
         submitButton.textContent = 'Add Business';
       }

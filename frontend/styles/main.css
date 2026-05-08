@@ -813,6 +813,114 @@ textarea:focus-visible {
   border-color: rgba(230, 79, 79, 0.2);
 }
 
+.submission-loading {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(14, 99, 255, 0.18);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(14, 99, 255, 0.12), var(--bg-strong));
+  box-shadow: 0 16px 36px rgba(11, 37, 89, 0.1);
+}
+
+.submission-loading strong,
+.submission-loading span {
+  display: block;
+}
+
+.submission-loading strong {
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.submission-loading span {
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.submission-mascot {
+  width: 88px;
+  flex: 0 0 88px;
+  animation: mascot-float 1.8s ease-in-out infinite;
+}
+
+.submission-mascot svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.mascot-body,
+.mascot-head {
+  fill: #8cc0ff;
+  stroke: #0e63ff;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+.mascot-tail,
+.mascot-face,
+.mascot-whisker {
+  fill: none;
+  stroke: #0e63ff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mascot-eye {
+  fill: #10213f;
+  animation: mascot-blink 2.4s infinite;
+  transform-origin: center;
+}
+
+.mascot-note {
+  fill: #ffffff;
+  stroke: #0e63ff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  animation: mascot-note 1.4s ease-in-out infinite;
+}
+
+body.dark-mode .mascot-eye {
+  fill: #08101f;
+}
+
+@keyframes mascot-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes mascot-blink {
+  0%,
+  88%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  92% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes mascot-note {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(2deg);
+  }
+}
+
 .status-message.error {
   background: rgba(230, 79, 79, 0.12);
   color: #b13333;
@@ -1027,5 +1135,14 @@ body.has-open-lightbox {
     align-items: flex-start;
     flex-direction: column;
     gap: 0.35rem;
+  }
+
+  .submission-loading {
+    align-items: flex-start;
+  }
+
+  .submission-mascot {
+    width: 72px;
+    flex-basis: 72px;
   }
 }
