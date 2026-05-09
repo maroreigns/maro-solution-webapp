@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maro Services Hub | Business Owner Dashboard</title>
+    <meta
+      name="description"
+      content="Log in to manage your Maro Services Hub business listing details and photos."
+    />
+    <link rel="stylesheet" href="./styles/main.css" />
+    <link rel="icon" type="image/png" href="./assets/logo1.png">
+  </head>
+  <body data-page="dashboard">
+    <header class="site-header">
+      <div class="container nav-shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">MSH</span>
+          <span class="brand-text">
+            <strong>Maro Services Hub</strong>
+            <small>Nigeria's service directory</small>
+          </span>
+        </a>
+
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        <nav class="site-nav" id="site-nav">
+          <a href="./index.html">Home</a>
+          <a href="./listings.html">Listings</a>
+          <a href="./add-business.html">Add Business</a>
+          <a href="./dashboard.html">Dashboard</a>
+          <a href="./about.html">About</a>
+          <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <span aria-hidden="true">&#9679;</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <section class="section">
+        <div class="container dashboard-layout">
+          <div class="form-intro">
+            <span class="eyebrow">Owner account</span>
+            <h1>Manage your business listing</h1>
+            <p>Update your contact details, service description, profile photo, and work photos from one place.</p>
+          </div>
+
+          <section class="business-form card" id="owner-auth-panel">
+            <div class="form-feedback" id="owner-auth-feedback" hidden></div>
+
+            <form class="dashboard-stack" id="owner-login-form">
+              <h2>Owner login</h2>
+              <label>
+                Email or phone
+                <input type="text" name="identifier" autocomplete="username" required />
+              </label>
+              <label>
+                Password
+                <input type="password" name="password" autocomplete="current-password" required />
+              </label>
+              <div class="filter-actions">
+                <button class="button button-primary" type="submit" id="owner-login-submit">Log In</button>
+                <button class="button button-secondary" type="button" id="show-forgot-password">Forgot Password</button>
+              </div>
+            </form>
+
+            <form class="dashboard-stack" id="owner-forgot-form" hidden>
+              <h2>Forgot password</h2>
+              <label>
+                Email address
+                <input type="email" name="email" autocomplete="email" required />
+              </label>
+              <div class="filter-actions">
+                <button class="button button-primary" type="submit" id="owner-forgot-submit">Send Reset Link</button>
+                <button class="button button-secondary" type="button" id="show-owner-login">Back to Login</button>
+              </div>
+            </form>
+
+            <form class="dashboard-stack" id="owner-reset-form" hidden>
+              <h2>Reset password</h2>
+              <label>
+                Email address
+                <input type="email" name="email" autocomplete="email" required />
+              </label>
+              <label>
+                New password
+                <input type="password" name="newPassword" minlength="6" autocomplete="new-password" required />
+              </label>
+              <label>
+                Confirm new password
+                <input type="password" name="confirmPassword" minlength="6" autocomplete="new-password" required />
+              </label>
+              <button class="button button-primary" type="submit" id="owner-reset-submit">Reset Password</button>
+            </form>
+          </section>
+
+          <section class="dashboard-panel card" id="owner-dashboard-panel" hidden>
+            <div class="dashboard-heading">
+              <div>
+                <span class="eyebrow">Dashboard</span>
+                <h2 id="owner-business-name">Business details</h2>
+              </div>
+              <button class="button button-secondary" type="button" id="owner-logout">Logout</button>
+            </div>
+
+            <div class="form-feedback" id="owner-dashboard-feedback" hidden></div>
+            <div class="dashboard-summary" id="owner-dashboard-summary"></div>
+
+            <form class="business-form dashboard-edit-form" id="owner-profile-form">
+              <h3>Edit business details</h3>
+              <label>
+                Full name or business name
+                <input type="text" name="name" required />
+              </label>
+              <label>
+                Service category
+                <select name="category" id="dashboard-category" required>
+                  <option value="">Select category</option>
+                </select>
+              </label>
+              <div class="form-row">
+                <label>
+                  State
+                  <select name="state" id="dashboard-state" required>
+                    <option value="">Select state</option>
+                  </select>
+                </label>
+                <label>
+                  Local Government
+                  <select name="localGovernment" id="dashboard-local-government" required>
+                    <option value="">Select local government</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Phone number
+                  <input type="tel" name="phone" required />
+                </label>
+                <label>
+                  Email address
+                  <input type="email" name="email" required />
+                </label>
+              </div>
+              <label>
+                Address or nearby location
+                <input type="text" name="address" required />
+              </label>
+              <label>
+                How will you serve your customers?
+                <textarea name="serviceDescription" rows="4"></textarea>
+              </label>
+              <label>
+                Years of experience
+                <input type="number" name="yearsExperience" min="0" max="80" required />
+              </label>
+              <button class="button button-primary" type="submit" id="owner-profile-submit">Save Details</button>
+            </form>
+
+            <form class="business-form dashboard-edit-form" id="owner-photos-form" enctype="multipart/form-data">
+              <h3>Update photos</h3>
+              <label>
+                Profile picture
+                <input type="file" name="profileImage" id="dashboard-profile-image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+              </label>
+              <div class="image-preview" id="dashboard-profile-preview">No new profile photo selected.</div>
+              <label>
+                Service photos
+                <input type="file" name="serviceImages" id="dashboard-service-images" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple />
+              </label>
+              <div class="image-preview" id="dashboard-service-preview">No new service photos selected.</div>
+              <button class="button button-primary" type="submit" id="owner-photos-submit">Save Photos</button>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div>
+          <h3>Maro Services Hub</h3>
+          <p>Helping people discover trusted local service providers across Nigeria.</p>
+        </div>
+        <div class="footer-links">
+          <a href="./index.html">Home</a>
+          <a href="./listings.html">Listings</a>
+          <a href="./add-business.html">Add Business</a>
+          <a href="./dashboard.html">Dashboard</a>
+          <a href="./about.html">About</a>
+          <a href="https://www.facebook.com/share/1DiB5dwRoD/?mibextid=wwXIfr" target="_blank" rel="noreferrer">Facebook</a>
+          <a href="https://www.instagram.com/maro_services_hub?igsh=MWdrcndtOGEwNnJkNg%3D%3D&utm_source=qr" target="_blank" rel="noreferrer">Instagram</a>
+        </div>
+        <p class="copyright">Copyright <span id="current-year"></span> Maro Services Hub. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="./scripts/data.js"></script>
+    <script src="./scripts/config.js"></script>
+    <script src="./scripts/main.js"></script>
+  </body>
+</html>

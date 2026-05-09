@@ -144,11 +144,42 @@ const businessSchema = new mongoose.Schema(
       min: 0,
       max: 80,
     },
+    passwordHash: {
+      type: String,
+      select: false,
+    },
+    passwordResetTokenHash: {
+      type: String,
+      select: false,
+    },
+    passwordResetExpires: {
+      type: Date,
+      select: false,
+    },
+    ownerLastLoginAt: {
+      type: Date,
+    },
   },
   {
     timestamps: {
       createdAt: 'createdAt',
       updatedAt: 'updatedAt',
+    },
+    toJSON: {
+      transform(doc, ret) {
+        delete ret.passwordHash;
+        delete ret.passwordResetTokenHash;
+        delete ret.passwordResetExpires;
+        return ret;
+      },
+    },
+    toObject: {
+      transform(doc, ret) {
+        delete ret.passwordHash;
+        delete ret.passwordResetTokenHash;
+        delete ret.passwordResetExpires;
+        return ret;
+      },
     },
   }
 );

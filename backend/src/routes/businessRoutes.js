@@ -5,17 +5,23 @@ const {
   createBusiness,
   deleteBusiness,
   deleteBusinessReport,
+  forgotOwnerPassword,
   getBusinessById,
   getBusinessOwnerStatus,
   getBusinessReports,
   getBusinesses,
   getPendingBusinesses,
+  getOwnerMe,
+  loginBusinessOwner,
   rateBusiness,
   reportBusiness,
   resolveBusinessReport,
   rejectBusiness,
   rejectPayment,
+  resetOwnerPassword,
   updateBusiness,
+  updateOwnerPhotos,
+  updateOwnerProfile,
   verifyBusinessPhone,
   verifyPayment,
 } = require('../controllers/businessController');
@@ -25,6 +31,7 @@ const {
   handleValidationResult,
 } = require('../middleware/validateBusiness');
 const { requireAdminAuth } = require('../middleware/adminAuth');
+const { requireOwnerAuth } = require('../middleware/ownerAuth');
 const { sanitizeRequestBody } = require('../utils/sanitize');
 
 const router = express.Router();
@@ -82,6 +89,28 @@ router.get('/admin/reports', requireAdminAuth, getBusinessReports);
 router.patch('/admin/reports/:id/resolve', requireAdminAuth, resolveBusinessReport);
 router.delete('/admin/reports/:id', adminDeleteLimiter, requireAdminAuth, deleteBusinessReport);
 router.get('/admin/pending', requireAdminAuth, getPendingBusinesses);
+
+router.post('/owner/login', sanitizeRequestBody, loginBusinessOwner);
+router.post('/owner/forgot-password', sanitizeRequestBody, forgotOwnerPassword);
+router.post('/owner/reset-password', sanitizeRequestBody, resetOwnerPassword);
+router.get('/owner/me', requireOwnerAuth, getOwnerMe);
+router.put(
+  '/owner/profile',
+  requireOwnerAuth,
+  sanitizeRequestBody,
+  businessValidationRules,
+  handleValidationResult,
+  updateOwnerProfile
+);
+router.patch(
+  '/owner/photos',
+  requireOwnerAuth,
+  upload.fields([
+    { name: 'profileImage', maxCount: 1 },
+    { name: 'serviceImages', maxCount: 3 },
+  ]),
+  updateOwnerPhotos
+);
 
 router.post('/:id/rate', ratingLimiter, sanitizeRequestBody, rateBusiness);
 router.post('/:id/comments', sanitizeRequestBody, addBusinessComment);

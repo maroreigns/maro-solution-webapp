@@ -1,11 +1,15 @@
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { Business } = require('../models/Business');
 const { Report } = require('../models/Report');
 const { asyncHandler } = require('../utils/asyncHandler');
 const { escapeHtml, sendEmail } = require('../utils/email');
 const { sanitizeString } = require('../utils/sanitize');
+const { getOwnerJwtSecret } = require('../middleware/ownerAuth');
 
 function buildImagePath(file) {
   if (!file) {
@@ -42,6 +46,58 @@ function cleanupUploadedFile(filePath) {
   if (fs.existsSync(resolvedPath)) {
     fs.unlinkSync(resolvedPath);
   }
+}
+
+function cleanupRequestUploads(req) {
+  const uploadedFiles = [
+    req.file,
+    ...Object.values(req.files || {}).flat(),
+  ].filter(Boolean);
+
+  uploadedFiles.forEach((file) => cleanupUploadedFile(buildImagePath(file)));
+}
+
+function hashResetToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function buildOwnerToken(business) {
+  const secret = getOwnerJwtSecret();
+
+  if (!secret) {
+    return '';
+  }
+
+  return jwt.sign(
+    {
+      sub: String(business._id),
+      role: 'business-owner',
+    },
+    secret,
+    {
+      expiresIn: '7d',
+    }
+  );
+}
+
+function buildBusinessPayload(business) {
+  const payload = typeof business.toJSON === 'function' ? business.toJSON() : { ...business };
+  delete payload.passwordHash;
+  delete payload.passwordResetTokenHash;
+  delete payload.passwordResetExpires;
+  return payload;
+}
+
+function validatePasswordFields(password, confirmPassword) {
+  if (!password || password.length < 6) {
+    return 'Password must be at least 6 characters.';
+  }
+
+  if (password !== confirmPassword) {
+    return 'Confirm password must match password.';
+  }
+
+  return '';
 }
 
 function buildFilters(query) {
@@ -174,6 +230,21 @@ const getBusinessOwnerStatus = asyncHandler(async (req, res) => {
 const createBusiness = asyncHandler(async (req, res) => {
   const profileImage = getUploadedFile(req, 'profileImage');
   const serviceImages = getUploadedFiles(req, 'serviceImages').map(buildImagePath);
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const confirmPassword =
+    typeof req.body.confirmPassword === 'string' ? req.body.confirmPassword : '';
+  const passwordError = validatePasswordFields(password, confirmPassword);
+
+  if (passwordError) {
+    cleanupRequestUploads(req);
+    return res.status(400).json({
+      success: false,
+      message: passwordError,
+      errors: [{ field: password.length < 6 ? 'password' : 'confirmPassword', message: passwordError }],
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
 
   const business = await Business.create({
     name: req.body.name,
@@ -187,6 +258,7 @@ const createBusiness = asyncHandler(async (req, res) => {
     serviceDescription: sanitizeString(req.body.serviceDescription) || '',
     serviceImages,
     yearsExperience: Number(req.body.yearsExperience),
+    passwordHash,
     status: 'pending',
     paymentStatus: 'unpaid',
   });
@@ -200,6 +272,210 @@ const createBusiness = asyncHandler(async (req, res) => {
       status: business.status,
       paymentStatus: business.paymentStatus,
     },
+  });
+});
+
+const loginBusinessOwner = asyncHandler(async (req, res) => {
+  const identifier = sanitizeString(
+    req.body.identifier || req.body.emailOrPhone || req.body.email || req.body.phone || ''
+  ).toLowerCase();
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+
+  if (!identifier || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email or phone and password are required.',
+    });
+  }
+
+  const secret = getOwnerJwtSecret();
+  if (!secret) {
+    return res.status(500).json({
+      success: false,
+      message: 'Owner authentication is not configured.',
+    });
+  }
+
+  const business = await Business.findOne({
+    $or: [{ email: identifier }, { phone: identifier }],
+  }).select('+passwordHash');
+
+  if (business && !business.passwordHash) {
+    return res.status(403).json({
+      success: false,
+      message: 'This listing does not have owner login set up yet. Please contact admin.',
+    });
+  }
+
+  const isValidPassword = business
+    ? await bcrypt.compare(password, business.passwordHash || '')
+    : false;
+
+  if (!business || !isValidPassword) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid email, phone, or password.',
+    });
+  }
+
+  business.ownerLastLoginAt = new Date();
+  await business.save();
+
+  res.json({
+    success: true,
+    message: 'Owner login successful.',
+    token: buildOwnerToken(business),
+    data: buildBusinessPayload(business),
+  });
+});
+
+const getOwnerMe = asyncHandler(async (req, res) => {
+  res.json({
+    success: true,
+    data: buildBusinessPayload(req.ownerBusiness),
+  });
+});
+
+const updateOwnerProfile = asyncHandler(async (req, res) => {
+  const business = req.ownerBusiness;
+
+  business.name = req.body.name;
+  business.category = req.body.category;
+  business.state = req.body.state;
+  business.localGovernment = req.body.localGovernment;
+  business.phone = req.body.phone;
+  business.email = req.body.email;
+  business.address = req.body.address;
+  business.serviceDescription = sanitizeString(req.body.serviceDescription) || '';
+  business.yearsExperience = Number(req.body.yearsExperience);
+
+  await business.save();
+
+  res.json({
+    success: true,
+    message: 'Business details updated successfully.',
+    data: buildBusinessPayload(business),
+  });
+});
+
+const updateOwnerPhotos = asyncHandler(async (req, res) => {
+  const business = req.ownerBusiness;
+  const profileImage = getUploadedFile(req, 'profileImage');
+  const serviceImages = getUploadedFiles(req, 'serviceImages').map(buildImagePath);
+
+  if (profileImage) {
+    business.profileImage = buildImagePath(profileImage);
+  }
+
+  if (serviceImages.length) {
+    business.serviceImages = serviceImages.slice(0, 3);
+  }
+
+  await business.save();
+
+  res.json({
+    success: true,
+    message: 'Business photos updated successfully.',
+    data: buildBusinessPayload(business),
+  });
+});
+
+const forgotOwnerPassword = asyncHandler(async (req, res) => {
+  const genericMessage =
+    'If an account exists with this email, a password reset link has been sent.';
+  const email = sanitizeString(req.body.email || '').toLowerCase();
+
+  if (email) {
+    const business = await Business.findOne({ email }).select(
+      '+passwordResetTokenHash +passwordResetExpires'
+    );
+
+    if (business) {
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      business.passwordResetTokenHash = hashResetToken(resetToken);
+      business.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+      await business.save();
+
+      const resetLink =
+        'https://marosolutionapp.com/dashboard.html?resetToken=' +
+        encodeURIComponent(resetToken) +
+        '&email=' +
+        encodeURIComponent(email);
+      const businessName = business.name || 'there';
+      const text = `Hello ${businessName},
+
+We received a request to reset your Maro Services Hub password.
+Use this link within 1 hour to choose a new password:
+${resetLink}
+
+If you did not request this, you can ignore this email.`;
+
+      await sendEmail({
+        to: business.email,
+        subject: 'Reset your Maro Services Hub password',
+        text,
+        html: `<p>Hello ${escapeHtml(businessName)},</p>
+<p>We received a request to reset your Maro Services Hub password.</p>
+<p><a href="${escapeHtml(resetLink)}">Reset your password</a></p>
+<p>This link expires in 1 hour. If you did not request this, you can ignore this email.</p>`,
+      });
+    }
+  }
+
+  res.json({
+    success: true,
+    message: genericMessage,
+  });
+});
+
+const resetOwnerPassword = asyncHandler(async (req, res) => {
+  const email = sanitizeString(req.body.email || '').toLowerCase();
+  const token = typeof req.body.token === 'string' ? req.body.token : '';
+  const newPassword = typeof req.body.newPassword === 'string' ? req.body.newPassword : '';
+  const confirmPassword =
+    typeof req.body.confirmPassword === 'string' ? req.body.confirmPassword : '';
+  const passwordError = validatePasswordFields(newPassword, confirmPassword);
+
+  if (!email || !token) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email and reset token are required.',
+    });
+  }
+
+  if (passwordError) {
+    return res.status(400).json({
+      success: false,
+      message: passwordError,
+    });
+  }
+
+  const business = await Business.findOne({ email }).select(
+    '+passwordResetTokenHash +passwordResetExpires'
+  );
+  const tokenHash = hashResetToken(token);
+  const hasValidReset =
+    business &&
+    business.passwordResetTokenHash &&
+    business.passwordResetTokenHash === tokenHash &&
+    business.passwordResetExpires &&
+    business.passwordResetExpires.getTime() > Date.now();
+
+  if (!hasValidReset) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password reset link is invalid or has expired.',
+    });
+  }
+
+  business.passwordHash = await bcrypt.hash(newPassword, 12);
+  business.passwordResetTokenHash = undefined;
+  business.passwordResetExpires = undefined;
+  await business.save();
+
+  res.json({
+    success: true,
+    message: 'Password reset successful. You can now log in.',
   });
 });
 
@@ -723,17 +999,23 @@ module.exports = {
   createBusiness,
   deleteBusiness,
   deleteBusinessReport,
+  forgotOwnerPassword,
   getBusinessById,
   getBusinessOwnerStatus,
   getBusinessReports,
   getBusinesses,
   getPendingBusinesses,
+  getOwnerMe,
+  loginBusinessOwner,
   rateBusiness,
   reportBusiness,
   resolveBusinessReport,
   rejectBusiness,
   rejectPayment,
+  resetOwnerPassword,
   updateBusiness,
+  updateOwnerPhotos,
+  updateOwnerProfile,
   verifyBusinessPhone,
   verifyPayment,
 };

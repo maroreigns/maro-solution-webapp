@@ -23,10 +23,12 @@
     listings: './listings.html',
     addBusiness: './add-business.html',
     business: './business.html',
+    dashboard: './dashboard.html',
   };
   const whatsappMessage =
     'Hello, I need your service. I am messaging you from Maro Solution website.';
   const adminJwtStorageKey = 'admin_jwt';
+  const ownerJwtStorageKey = 'owner_jwt';
   const ownerListingStorageKey = 'maro-owner-listing-status';
 
   function initializeSharedUi() {
@@ -149,6 +151,10 @@
 
   function getSavedAdminJwt() {
     return sessionStorage.getItem(adminJwtStorageKey) || '';
+  }
+
+  function getSavedOwnerJwt() {
+    return sessionStorage.getItem(ownerJwtStorageKey) || '';
   }
 
   function getTrackedOwnerListing() {
@@ -302,6 +308,13 @@
   function getAdminAuthHeaders() {
     return {
       Authorization: 'Bearer ' + getSavedAdminJwt(),
+    };
+  }
+
+  function getOwnerAuthHeaders(extraHeaders) {
+    return {
+      ...(extraHeaders || {}),
+      Authorization: 'Bearer ' + getSavedOwnerJwt(),
     };
   }
 
@@ -929,6 +942,112 @@
 
     if (!response.ok) {
       throw new Error(payload.message || 'Admin session expired.');
+    }
+
+    return payload.data || null;
+  }
+
+  async function loginOwner(identifier, password) {
+    const response = await fetch(apiBaseUrl + '/owner/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ identifier: identifier, password: password }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to log in.');
+    }
+
+    return payload;
+  }
+
+  async function fetchOwnerMe() {
+    const response = await fetch(apiBaseUrl + '/owner/me', {
+      headers: getOwnerAuthHeaders(),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Owner session expired.');
+    }
+
+    return payload.data || null;
+  }
+
+  async function forgotOwnerPassword(email) {
+    const response = await fetch(apiBaseUrl + '/owner/forgot-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: email }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to send password reset link.');
+    }
+
+    return payload;
+  }
+
+  async function resetOwnerPassword(email, token, newPassword, confirmPassword) {
+    const response = await fetch(apiBaseUrl + '/owner/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email,
+        token: token,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to reset password.');
+    }
+
+    return payload;
+  }
+
+  async function updateOwnerProfile(profileData) {
+    const response = await fetch(apiBaseUrl + '/owner/profile', {
+      method: 'PUT',
+      headers: getOwnerAuthHeaders({
+        'Content-Type': 'application/json',
+      }),
+      body: JSON.stringify(profileData),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      const validationMessages = (payload.errors || [])
+        .map(function (item) {
+          return item.message;
+        })
+        .join(' ');
+      throw new Error(validationMessages || payload.message || 'Unable to update business details.');
+    }
+
+    return payload.data || null;
+  }
+
+  async function updateOwnerPhotos(formData) {
+    const response = await fetch(apiBaseUrl + '/owner/photos', {
+      method: 'PATCH',
+      headers: getOwnerAuthHeaders(),
+      body: formData,
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Unable to update business photos.');
     }
 
     return payload.data || null;
@@ -2104,6 +2223,17 @@
         }
 
         const formData = new FormData(form);
+        const password = String(formData.get('password') || '');
+        const confirmPassword = String(formData.get('confirmPassword') || '');
+
+        if (password.length < 6) {
+          throw new Error('Password must be at least 6 characters.');
+        }
+
+        if (password !== confirmPassword) {
+          throw new Error('Confirm password must match password.');
+        }
+
         const response = await fetch(apiBaseUrl, {
           method: 'POST',
           body: formData,
@@ -2213,6 +2343,349 @@
     }
   }
 
+  function initializeDashboardPage() {
+    const authPanel = document.getElementById('owner-auth-panel');
+    const dashboardPanel = document.getElementById('owner-dashboard-panel');
+    const authFeedback = document.getElementById('owner-auth-feedback');
+    const dashboardFeedback = document.getElementById('owner-dashboard-feedback');
+    const loginForm = document.getElementById('owner-login-form');
+    const forgotForm = document.getElementById('owner-forgot-form');
+    const resetForm = document.getElementById('owner-reset-form');
+    const showForgotButton = document.getElementById('show-forgot-password');
+    const showLoginButton = document.getElementById('show-owner-login');
+    const logoutButton = document.getElementById('owner-logout');
+    const profileForm = document.getElementById('owner-profile-form');
+    const photosForm = document.getElementById('owner-photos-form');
+    const summaryNode = document.getElementById('owner-dashboard-summary');
+    const businessNameNode = document.getElementById('owner-business-name');
+    const categorySelect = document.getElementById('dashboard-category');
+    const stateSelect = document.getElementById('dashboard-state');
+    const lgaSelect = document.getElementById('dashboard-local-government');
+    const profileImageInput = document.getElementById('dashboard-profile-image');
+    const serviceImagesInput = document.getElementById('dashboard-service-images');
+    const profilePreview = document.getElementById('dashboard-profile-preview');
+    const servicePreview = document.getElementById('dashboard-service-preview');
+    const searchParams = new URLSearchParams(window.location.search);
+    const resetToken = searchParams.get('resetToken') || '';
+    const resetEmail = searchParams.get('email') || '';
+    let currentBusiness = null;
+    let dashboardProfilePreviewUrl = '';
+
+    if (!authPanel || !dashboardPanel) {
+      return;
+    }
+
+    populateSelect(categorySelect, appData.businessCategories, 'Select category');
+    wireStateAndLgaSelects(stateSelect, lgaSelect, 'Select local government');
+
+    function setFeedback(node, message, isError) {
+      if (!node) {
+        return;
+      }
+
+      node.hidden = !message;
+      node.className = 'form-feedback';
+      if (message) {
+        node.classList.add(isError ? 'error' : 'success');
+        node.textContent = message;
+      }
+    }
+
+    function showAuthView(viewName) {
+      authPanel.hidden = false;
+      dashboardPanel.hidden = true;
+      loginForm.hidden = viewName !== 'login';
+      forgotForm.hidden = viewName !== 'forgot';
+      resetForm.hidden = viewName !== 'reset';
+      setFeedback(authFeedback, '', false);
+    }
+
+    function showDashboard() {
+      authPanel.hidden = true;
+      dashboardPanel.hidden = false;
+      setFeedback(dashboardFeedback, '', false);
+    }
+
+    function createDashboardSummary(business) {
+      const profileImage = business.profileImage
+        ? '<img src="' + resolveAssetUrl(business.profileImage) + '" alt="' + escapeHtml(business.name) + ' profile photo" />'
+        : '<span>' + escapeHtml(firstLetterFromName(business.name)) + '</span>';
+      const serviceImages = Array.isArray(business.serviceImages) ? business.serviceImages : [];
+      const serviceImageMarkup = serviceImages.length
+        ? serviceImages
+            .map(function (imageUrl, index) {
+              return (
+                '<img src="' +
+                resolveAssetUrl(imageUrl) +
+                '" alt="' +
+                escapeHtml(business.name + ' service photo ' + (index + 1)) +
+                '" />'
+              );
+            })
+            .join('')
+        : '<div class="status-message">No service photos yet.</div>';
+
+      return [
+        '<div class="dashboard-photo-shell"><div class="provider-avatar">' + profileImage + '</div></div>',
+        '<dl class="payment-details dashboard-details">',
+        '<div><dt>Category</dt><dd>' + escapeHtml(business.category) + '</dd></div>',
+        '<div><dt>State</dt><dd>' + escapeHtml(business.state) + '</dd></div>',
+        '<div><dt>Local Government</dt><dd>' + escapeHtml(business.localGovernment) + '</dd></div>',
+        '<div><dt>Phone</dt><dd>' + escapeHtml(business.phone) + '</dd></div>',
+        '<div><dt>Email</dt><dd>' + escapeHtml(business.email) + '</dd></div>',
+        '<div><dt>Address</dt><dd>' + escapeHtml(business.address) + '</dd></div>',
+        '<div><dt>Service Description</dt><dd>' + escapeHtml(business.serviceDescription || 'Not provided') + '</dd></div>',
+        '<div><dt>Experience</dt><dd>' + escapeHtml(String(business.yearsExperience || 0)) + ' years</dd></div>',
+        '<div><dt>Status</dt><dd>' + escapeHtml(business.status) + '</dd></div>',
+        '<div><dt>Payment</dt><dd>' + escapeHtml(business.paymentStatus) + '</dd></div>',
+        '<div><dt>Verified Badge</dt><dd>' + (shouldShowVerifiedBadge(business) ? 'Visible' : 'Not visible') + '</dd></div>',
+        '</dl>',
+        '<div class="service-gallery dashboard-service-gallery">' + serviceImageMarkup + '</div>',
+      ].join('');
+    }
+
+    function fillProfileForm(business) {
+      profileForm.elements.name.value = business.name || '';
+      categorySelect.value = business.category || '';
+      stateSelect.value = business.state || '';
+      stateSelect.dispatchEvent(new Event('change'));
+      lgaSelect.value = business.localGovernment || '';
+      profileForm.elements.phone.value = business.phone || '';
+      profileForm.elements.email.value = business.email || '';
+      profileForm.elements.address.value = business.address || '';
+      profileForm.elements.serviceDescription.value = business.serviceDescription || '';
+      profileForm.elements.yearsExperience.value = business.yearsExperience || 0;
+    }
+
+    function renderDashboard(business) {
+      currentBusiness = business;
+      businessNameNode.textContent = business.name || 'Business details';
+      summaryNode.innerHTML = createDashboardSummary(business);
+      fillProfileForm(business);
+      showDashboard();
+    }
+
+    async function loadOwnerDashboard() {
+      try {
+        const business = await fetchOwnerMe();
+        renderDashboard(business);
+      } catch (error) {
+        sessionStorage.removeItem(ownerJwtStorageKey);
+        showAuthView(resetToken ? 'reset' : 'login');
+        setFeedback(authFeedback, error.message, true);
+      }
+    }
+
+    if (resetToken) {
+      showAuthView('reset');
+      if (resetForm.elements.email) {
+        resetForm.elements.email.value = resetEmail;
+      }
+    } else if (getSavedOwnerJwt()) {
+      loadOwnerDashboard();
+    } else {
+      showAuthView('login');
+    }
+
+    showForgotButton.addEventListener('click', function () {
+      showAuthView('forgot');
+    });
+
+    showLoginButton.addEventListener('click', function () {
+      showAuthView('login');
+    });
+
+    loginForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const submitButton = document.getElementById('owner-login-submit');
+      const formData = new FormData(loginForm);
+
+      submitButton.disabled = true;
+      submitButton.textContent = 'Logging in...';
+      setFeedback(authFeedback, '', false);
+
+      try {
+        const payload = await loginOwner(
+          String(formData.get('identifier') || '').trim(),
+          String(formData.get('password') || '')
+        );
+        sessionStorage.setItem(ownerJwtStorageKey, payload.token || '');
+        loginForm.reset();
+        renderDashboard(payload.data);
+      } catch (error) {
+        sessionStorage.removeItem(ownerJwtStorageKey);
+        setFeedback(authFeedback, error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Log In';
+      }
+    });
+
+    forgotForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const submitButton = document.getElementById('owner-forgot-submit');
+      const formData = new FormData(forgotForm);
+
+      submitButton.disabled = true;
+      submitButton.textContent = 'Sending...';
+      setFeedback(authFeedback, '', false);
+
+      try {
+        const payload = await forgotOwnerPassword(String(formData.get('email') || '').trim());
+        forgotForm.reset();
+        setFeedback(authFeedback, payload.message || 'Password reset link sent if the account exists.', false);
+      } catch (error) {
+        setFeedback(authFeedback, error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Send Reset Link';
+      }
+    });
+
+    resetForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const submitButton = document.getElementById('owner-reset-submit');
+      const formData = new FormData(resetForm);
+      const newPassword = String(formData.get('newPassword') || '');
+      const confirmPassword = String(formData.get('confirmPassword') || '');
+
+      submitButton.disabled = true;
+      submitButton.textContent = 'Resetting...';
+      setFeedback(authFeedback, '', false);
+
+      try {
+        if (newPassword.length < 6) {
+          throw new Error('Password must be at least 6 characters.');
+        }
+
+        if (newPassword !== confirmPassword) {
+          throw new Error('Confirm password must match password.');
+        }
+
+        const payload = await resetOwnerPassword(
+          String(formData.get('email') || '').trim(),
+          resetToken,
+          newPassword,
+          confirmPassword
+        );
+        resetForm.reset();
+        showAuthView('login');
+        setFeedback(authFeedback, payload.message || 'Password reset successful. You can now log in.', false);
+      } catch (error) {
+        setFeedback(authFeedback, error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Reset Password';
+      }
+    });
+
+    profileForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const submitButton = document.getElementById('owner-profile-submit');
+      const formData = new FormData(profileForm);
+      const profileData = Object.fromEntries(formData.entries());
+
+      submitButton.disabled = true;
+      submitButton.textContent = 'Saving...';
+      setFeedback(dashboardFeedback, '', false);
+
+      try {
+        const business = await updateOwnerProfile(profileData);
+        renderDashboard(business);
+        setFeedback(dashboardFeedback, 'Business details updated successfully.', false);
+      } catch (error) {
+        setFeedback(dashboardFeedback, error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Details';
+      }
+    });
+
+    if (profileImageInput && profilePreview) {
+      profileImageInput.addEventListener('change', function () {
+        const file = profileImageInput.files && profileImageInput.files[0];
+
+        if (dashboardProfilePreviewUrl) {
+          URL.revokeObjectURL(dashboardProfilePreviewUrl);
+          dashboardProfilePreviewUrl = '';
+        }
+
+        if (!file) {
+          profilePreview.textContent = 'No new profile photo selected.';
+          return;
+        }
+
+        dashboardProfilePreviewUrl = URL.createObjectURL(file);
+        profilePreview.innerHTML =
+          '<img class="upload-preview-image" src="' +
+          dashboardProfilePreviewUrl +
+          '" alt="Selected profile picture preview" /><span>Selected image: ' +
+          escapeHtml(file.name) +
+          '</span>';
+      });
+    }
+
+    if (serviceImagesInput && servicePreview) {
+      serviceImagesInput.addEventListener('change', function () {
+        const files = Array.from(serviceImagesInput.files || []);
+
+        if (files.length > 3) {
+          serviceImagesInput.value = '';
+          servicePreview.textContent = 'Please choose up to 3 service photos.';
+          return;
+        }
+
+        servicePreview.textContent = files.length
+          ? 'Selected service photos: ' +
+            files
+              .map(function (file) {
+                return file.name;
+              })
+              .join(', ')
+          : 'No new service photos selected.';
+      });
+    }
+
+    photosForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const submitButton = document.getElementById('owner-photos-submit');
+
+      if (serviceImagesInput && serviceImagesInput.files && serviceImagesInput.files.length > 3) {
+        setFeedback(dashboardFeedback, 'Please choose up to 3 service photos.', true);
+        return;
+      }
+
+      submitButton.disabled = true;
+      submitButton.textContent = 'Saving...';
+      setFeedback(dashboardFeedback, '', false);
+
+      try {
+        const business = await updateOwnerPhotos(new FormData(photosForm));
+        photosForm.reset();
+        profilePreview.textContent = 'No new profile photo selected.';
+        servicePreview.textContent = 'No new service photos selected.';
+        if (dashboardProfilePreviewUrl) {
+          URL.revokeObjectURL(dashboardProfilePreviewUrl);
+          dashboardProfilePreviewUrl = '';
+        }
+        renderDashboard(business || currentBusiness);
+        setFeedback(dashboardFeedback, 'Business photos updated successfully.', false);
+      } catch (error) {
+        setFeedback(dashboardFeedback, error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Photos';
+      }
+    });
+
+    logoutButton.addEventListener('click', function () {
+      sessionStorage.removeItem(ownerJwtStorageKey);
+      currentBusiness = null;
+      showAuthView('login');
+      setFeedback(authFeedback, 'Logged out.', false);
+    });
+  }
+
   initializeSharedUi();
   setupProviderAvatarFallbacks();
   setupRatingClicks();
@@ -2231,5 +2704,9 @@
 
   if (page === 'add-business') {
     initializeAddBusinessPage();
+  }
+
+  if (page === 'dashboard') {
+    initializeDashboardPage();
   }
 })();
