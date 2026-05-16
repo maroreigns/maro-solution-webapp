@@ -26,7 +26,7 @@
     dashboard: './dashboard.html',
   };
   const whatsappMessage =
-    'Hello, I need your service. I am messaging you from Maro Solution website.';
+    'Hello, I need your service. I am messaging you from Maro Services Hub website.';
   const adminJwtStorageKey = 'admin_jwt';
   const ownerJwtStorageKey = 'owner_jwt';
   const ownerListingStorageKey = 'maro-owner-listing-status';
