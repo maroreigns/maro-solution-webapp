@@ -3,15 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Maro Services Hub | Service Listings</title>
-    <meta
-      name="description"
-      content="Browse and filter service providers by category, state, local government, and keyword on Maro Solution."
-    />
+    <title>Maro Services Hub | Admin</title>
+    <meta name="robots" content="noindex, nofollow" />
     <link rel="stylesheet" href="./styles/main.css" />
-     <link rel="icon" type="image/png" href="./assets/logo1.png">
+    <link rel="icon" type="image/png" href="./assets/logo1.png" />
   </head>
-  <body data-page="listings">
+  <body data-page="admin">
     <header class="site-header">
       <div class="container nav-shell">
         <a class="brand" href="./index.html">
@@ -35,7 +32,7 @@
           <a href="./dashboard.html">My Dashboard</a>
           <a href="./about.html">About</a>
           <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
-            <span aria-hidden="true">◐</span>
+            <span aria-hidden="true">&#9679;</span>
           </button>
         </nav>
       </div>
@@ -46,15 +43,15 @@
         <div class="container">
           <div class="section-heading">
             <div>
-              <span class="eyebrow">Search listings</span>
-              <h1>Find the right provider for the job</h1>
+              <span class="eyebrow">Admin access</span>
+              <h1>Admin dashboard</h1>
             </div>
           </div>
 
-          <form class="filters card" id="listings-filter-form">
+          <form class="filters card" id="listings-filter-form" hidden>
             <label>
               Keyword or name
-              <input type="text" name="keyword" id="filter-keyword" placeholder="Search for a business or service" />
+              <input type="text" name="keyword" id="filter-keyword" />
             </label>
             <label>
               Category
@@ -77,36 +74,38 @@
             <div class="filter-actions">
               <button class="button button-primary" type="submit">Search</button>
               <button class="button button-secondary" type="button" id="reset-filters">Reset</button>
+              <button class="button button-secondary" type="button" id="admin-toggle" hidden>Admin</button>
             </div>
           </form>
 
-          <div class="results-meta" id="results-meta">Loading listings...</div>
-          <div class="provider-grid" id="listings-grid"></div>
+          <div class="results-meta" id="results-meta" hidden></div>
+          <section class="admin-panel card" id="admin-panel" hidden>
+            <div class="admin-panel-heading">
+              <div>
+                <span class="eyebrow">Admin queue</span>
+                <h2>Pending businesses</h2>
+              </div>
+              <button class="button button-secondary" type="button" id="admin-refresh">Refresh</button>
+            </div>
+            <div class="results-meta" id="admin-pending-meta">Log in to view pending businesses.</div>
+            <div class="admin-pending-list" id="admin-pending-list"></div>
+            <div class="admin-panel-heading admin-reports-heading">
+              <div>
+                <span class="eyebrow">Trust reports</span>
+                <h2>Business reports</h2>
+              </div>
+              <button class="button button-secondary" type="button" id="admin-reports-refresh">Refresh Reports</button>
+            </div>
+            <div class="results-meta" id="admin-reports-meta">Log in to view reports.</div>
+            <div class="admin-report-list" id="admin-report-list"></div>
+          </section>
+          <div class="provider-grid" id="listings-grid" hidden></div>
         </div>
       </section>
     </main>
-
-    <footer class="site-footer">
-      <div class="container footer-grid">
-        <div>
-          <h3>Maro Services Hub</h3>
-          <p>Helping people discover trusted local service providers across Nigeria.</p>
-        </div>
-        <div class="footer-links">
-          <a href="./index.html">Home</a>
-          <a href="./listings.html">Listings</a>
-          <a href="./add-business.html">Add Business</a>
-          <a href="./dashboard.html">MyDashboard</a>
-          <a href="./about.html">About</a>
-          <a href="https://www.facebook.com/share/1DiB5dwRoD/?mibextid=wwXIfr" target="_blank" rel="noreferrer">Facebook</a>
-          <a href="https://www.instagram.com/maro_services_hub?igsh=MWdrcndtOGEwNnJkNg%3D%3D&utm_source=qr" target="_blank" rel="noreferrer">Instagram</a>
-        </div>
-        <p class="copyright">Copyright <span id="current-year"></span> Maro Services Hub. All rights reserved.</p>
-      </div>
-    </footer>
 
     <script src="./scripts/data.js"></script>
     <script src="./scripts/config.js"></script>
     <script src="./scripts/main.js"></script>
   </body>
-  </html>
+</html>

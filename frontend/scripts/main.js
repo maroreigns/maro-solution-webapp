@@ -24,6 +24,7 @@
     addBusiness: './add-business.html',
     business: './business.html',
     dashboard: './dashboard.html',
+    admin: './admin.html',
   };
   const whatsappMessage =
     'Hello, I need your service. I am messaging you from Maro Services Hub website.';
@@ -1480,6 +1481,7 @@
   }
 
   function initializeListingsPage() {
+    const isDirectAdminPage = page === 'admin';
     const filterForm = document.getElementById('listings-filter-form');
     const categorySelect = document.getElementById('filter-category');
     const stateSelect = document.getElementById('filter-state');
@@ -1500,7 +1502,7 @@
     const paymentReference = searchParams.get('reference') || searchParams.get('trxref') || '';
     const shouldVerifyPayment = searchParams.get('payment') === 'success' || Boolean(paymentReference);
     let currentAdmin = null;
-    let isAdminPanelOpen = isAdminLoggedIn();
+    let isAdminPanelOpen = isDirectAdminPage || isAdminLoggedIn();
     let paymentReturnMessage = null;
     let ownerStatusMessage = null;
 
@@ -1664,11 +1666,13 @@
         }
       });
 
-      window.history.replaceState(
-        {},
-        '',
-        pagePaths.listings + (nextQuery.toString() ? '?' + nextQuery.toString() : '')
-      );
+      if (!isDirectAdminPage) {
+        window.history.replaceState(
+          {},
+          '',
+          pagePaths.listings + (nextQuery.toString() ? '?' + nextQuery.toString() : '')
+        );
+      }
 
       try {
         const businesses = await fetchBusinesses(params);
@@ -1732,16 +1736,14 @@
     }
 
     function refreshAdminButton() {
-      if (!adminToggle) {
-        return;
-      }
-
       const adminEnabled = isAdminLoggedIn();
       const loginForm = document.getElementById('admin-login-form');
       const sessionNode = document.getElementById('admin-session');
       const sessionLabel = document.getElementById('admin-session-label');
 
-      adminToggle.textContent = adminEnabled ? 'Admin Panel' : 'Admin Login';
+      if (adminToggle) {
+        adminToggle.textContent = adminEnabled ? 'Admin Panel' : 'Admin Login';
+      }
 
       if (adminPanel) {
         adminPanel.hidden = !isAdminPanelOpen && !adminEnabled;
@@ -2694,7 +2696,7 @@
     initializeHomePage();
   }
 
-  if (page === 'listings') {
+  if (page === 'listings' || page === 'admin') {
     initializeListingsPage();
   }
 
