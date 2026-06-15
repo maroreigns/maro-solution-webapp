@@ -185,7 +185,7 @@
   }
 
   function isAdminLoggedIn() {
-    return page === 'listings' && Boolean(getSavedAdminJwt());
+    return (page === 'listings' || page === 'admin') && Boolean(getSavedAdminJwt());
   }
 
   function formatRatingSummary(ratingAverage, ratingCount) {
@@ -1816,6 +1816,9 @@
         return;
       }
 
+      if (isDirectAdminPage) {
+        console.log('[ADMIN] loading pending businesses');
+      }
       adminPendingMeta.textContent = 'Loading pending businesses...';
       adminPendingList.innerHTML = '';
 
@@ -1848,6 +1851,9 @@
         return;
       }
 
+      if (isDirectAdminPage) {
+        console.log('[ADMIN] loading reports');
+      }
       adminReportsMeta.textContent = 'Loading reports...';
       adminReportList.innerHTML = '';
 
@@ -1933,6 +1939,10 @@
           }
           sessionStorage.setItem(adminJwtStorageKey, payload.token || '');
           currentAdmin = payload.data || null;
+          if (isDirectAdminPage) {
+            console.log('[ADMIN] login success');
+            console.log('[ADMIN] dashboard initialized');
+          }
           adminLoginForm.reset();
           refreshAdminButton();
           await loadPendingQueue();
@@ -2144,6 +2154,7 @@
       if (isDirectAdminPage) {
         ensureAdminLoginUi();
         refreshAdminButton();
+        console.log('[ADMIN] dashboard initialized');
 
         if (isAdminLoggedIn()) {
           try {
