@@ -676,6 +676,14 @@
 
   function createPendingBusinessCard(business) {
     const businessId = getBusinessId(business);
+    const paymentStatus = business.paymentStatus || 'unpaid';
+    const businessStatus = business.status || 'pending';
+    const amountPaid =
+      typeof business.amountPaid === 'number' && Number.isFinite(business.amountPaid)
+        ? 'NGN ' + business.amountPaid.toLocaleString()
+        : 'Not recorded';
+    const shouldShowVerifyPayment = paymentStatus !== 'verified';
+    const shouldShowApprove = paymentStatus === 'verified' && businessStatus !== 'approved';
 
     return [
       '<article class="admin-pending-card" data-admin-business-id="' + escapeHtml(businessId) + '">',
@@ -684,26 +692,35 @@
       '    <div class="provider-tags">',
       '      <span class="tag">' + escapeHtml(business.category) + '</span>',
       '      <span class="tag">' + escapeHtml(business.state) + '</span>',
-      '      <span class="tag">' + escapeHtml(business.paymentStatus || 'unpaid') + '</span>',
+      '      <span class="tag">Status: ' + escapeHtml(businessStatus) + '</span>',
+      '      <span class="tag">Payment: ' + escapeHtml(paymentStatus) + '</span>',
       business.phoneVerified ? '      <span class="tag verified-badge">Phone verified</span>' : '',
       '    </div>',
       '  </div>',
       '  <div class="provider-meta">',
+      '    <span><strong>Owner name:</strong> ' + escapeHtml(business.name || 'Not provided') + '</span>',
       '    <span><strong>Local Government:</strong> ' + escapeHtml(business.localGovernment) + '</span>',
       '    <span><strong>Phone:</strong> ' + escapeHtml(business.phone) + '</span>',
       '    <span><strong>Email:</strong> ' + escapeHtml(business.email || 'Not provided') + '</span>',
       '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
+      '    <span><strong>Amount paid:</strong> ' + escapeHtml(amountPaid) + '</span>',
       '    <span><strong>Payment reference:</strong> ' + escapeHtml(business.paymentReference || 'Not provided yet') + '</span>',
       '    <span><strong>Phone verification:</strong> ' + (business.phoneVerified ? 'Verified' : 'Not verified') + '</span>',
       '  </div>',
       '  <section class="profile-section"><h4>Photo proof</h4>' + createAdminProofImages(business) + '</section>',
       '  <div class="admin-action-row">',
-      '    <button class="button button-primary admin-action-button" type="button" data-admin-action="verify-payment">Verify Payment</button>',
+      shouldShowVerifyPayment
+        ? '    <button class="button button-primary admin-action-button" type="button" data-admin-action="verify-payment">Verify Payment</button>'
+        : '',
       business.phoneVerified
         ? ''
         : '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="verify-phone">Verify Phone</button>',
-      '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="approve">Approve</button>',
-      '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="reject-payment">Reject Payment</button>',
+      shouldShowApprove
+        ? '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="approve">Approve</button>'
+        : '',
+      paymentStatus === 'verified'
+        ? ''
+        : '    <button class="button button-secondary admin-action-button" type="button" data-admin-action="reject-payment">Reject Payment</button>',
       '    <button class="button button-danger admin-action-button" type="button" data-admin-action="reject">Reject</button>',
       '    <button class="button button-danger admin-delete-button" type="button" data-delete-business-id="' +
         escapeHtml(businessId) +
@@ -1498,6 +1515,7 @@
     const adminPendingList = document.getElementById('admin-pending-list');
     const adminReportsMeta = document.getElementById('admin-reports-meta');
     const adminReportList = document.getElementById('admin-report-list');
+    const adminDashboardNodes = document.querySelectorAll('.admin-dashboard-only');
     const searchParams = new URLSearchParams(window.location.search);
     const paymentReference = searchParams.get('reference') || searchParams.get('trxref') || '';
     const shouldVerifyPayment = searchParams.get('payment') === 'success' || Boolean(paymentReference);
@@ -1746,7 +1764,13 @@
       }
 
       if (adminPanel) {
-        adminPanel.hidden = !isAdminPanelOpen && !adminEnabled;
+        adminPanel.hidden = isDirectAdminPage ? false : !isAdminPanelOpen && !adminEnabled;
+      }
+
+      if (isDirectAdminPage) {
+        adminDashboardNodes.forEach(function (node) {
+          node.hidden = !adminEnabled;
+        });
       }
 
       if (adminRefresh) {
@@ -1812,7 +1836,9 @@
           sessionStorage.removeItem(adminJwtStorageKey);
           currentAdmin = null;
           refreshAdminButton();
-          runSearch();
+          if (!isDirectAdminPage) {
+            runSearch();
+          }
         }
       }
     }
@@ -1842,7 +1868,9 @@
           sessionStorage.removeItem(adminJwtStorageKey);
           currentAdmin = null;
           refreshAdminButton();
-          runSearch();
+          if (!isDirectAdminPage) {
+            runSearch();
+          }
         }
       }
     }
@@ -1909,7 +1937,9 @@
           refreshAdminButton();
           await loadPendingQueue();
           await loadReportQueue();
-          await runSearch();
+          if (!isDirectAdminPage) {
+            await runSearch();
+          }
           setAdminFeedback('Admin login successful.', false);
         } catch (error) {
           sessionStorage.removeItem(adminJwtStorageKey);
@@ -1932,7 +1962,9 @@
         currentAdmin = null;
         setAdminFeedback('Logged out.', false);
         refreshAdminButton();
-        runSearch();
+        if (!isDirectAdminPage) {
+          runSearch();
+        }
       });
     }
 
@@ -2005,7 +2037,9 @@
 
       try {
         await deleteBusiness(businessId);
-        await runSearch();
+        if (!isDirectAdminPage) {
+          await runSearch();
+        }
         await loadPendingQueue();
         await loadReportQueue();
       } catch (error) {
@@ -2049,7 +2083,9 @@
         await runAdminBusinessAction(businessId, action);
         await loadPendingQueue();
         await loadReportQueue();
-        await runSearch();
+        if (!isDirectAdminPage) {
+          await runSearch();
+        }
       } catch (error) {
         window.alert(error.message);
         actionButton.disabled = false;
@@ -2093,7 +2129,9 @@
           await runAdminBusinessAction(businessId, action);
           await loadPendingQueue();
           await loadReportQueue();
-          await runSearch();
+          if (!isDirectAdminPage) {
+            await runSearch();
+          }
         } catch (error) {
           window.alert(error.message);
           actionButton.disabled = false;
@@ -2103,6 +2141,31 @@
     }
 
     async function initializeListingsData() {
+      if (isDirectAdminPage) {
+        ensureAdminLoginUi();
+        refreshAdminButton();
+
+        if (isAdminLoggedIn()) {
+          try {
+            currentAdmin = await fetchCurrentAdmin();
+            refreshAdminButton();
+            await loadPendingQueue();
+            await loadReportQueue();
+          } catch (error) {
+            sessionStorage.removeItem(adminJwtStorageKey);
+            currentAdmin = null;
+            refreshAdminButton();
+          }
+          return;
+        }
+
+        const emailInput = document.querySelector('#admin-login-form input[name="email"]');
+        if (emailInput) {
+          emailInput.focus();
+        }
+        return;
+      }
+
       await verifyPaymentFromReturnUrl();
       await loadTrackedOwnerListingStatus();
       refreshAdminButton();
