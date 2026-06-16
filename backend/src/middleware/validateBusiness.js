@@ -1,3 +1,9 @@
+/**
+ * Business Validation Middleware
+ *
+ * Defines express-validator rules shared by business creation, admin edits,
+ * and owner profile updates.
+ */
 const { body, validationResult } = require('express-validator');
 const fs = require('fs');
 const path = require('path');
@@ -8,6 +14,13 @@ const { sanitizeString } = require('../utils/sanitize');
 const phoneRegex = /^\+?[0-9\s-]{7,20}$/;
 const suspiciousTextRegex = /(?:<|>|\{|\}|\$|\[|\]|javascript:|data:)/i;
 
+/**
+ * Reject text that may contain script-like or template-like payloads.
+ *
+ * @param {string} value Input field value.
+ * @returns {boolean} True when the value is acceptable.
+ * @sideeffects Throws a validation error for suspicious text.
+ */
 function rejectSuspiciousText(value) {
   if (typeof value !== 'string' || suspiciousTextRegex.test(value)) {
     throw new Error('This field contains invalid characters.');
@@ -16,6 +29,13 @@ function rejectSuspiciousText(value) {
   return true;
 }
 
+/**
+ * Limit experience input to short numeric values before integer validation.
+ *
+ * @param {*} value Submitted experience value.
+ * @returns {boolean} True when the value length is acceptable.
+ * @sideeffects Throws a validation error when the value is too long.
+ */
 function validateExperienceLength(value) {
   if (String(value).trim().length > 2) {
     throw new Error('Years of experience must be between 0 and 80.');
@@ -24,6 +44,14 @@ function validateExperienceLength(value) {
   return true;
 }
 
+/**
+ * Confirm selected local government belongs to the selected state.
+ *
+ * @param {string} value Local government value.
+ * @param {Object} context express-validator context containing req.
+ * @returns {boolean} True when state/LGA pairing is valid.
+ * @sideeffects Throws a validation error for invalid pairings.
+ */
 function validateLocalGovernment(value, { req }) {
   const state = sanitizeString(req.body.state);
 
@@ -38,6 +66,14 @@ function validateLocalGovernment(value, { req }) {
   return true;
 }
 
+/**
+ * Ensure optional map coordinates are submitted as a complete pair.
+ *
+ * @param {*} value Current coordinate field value.
+ * @param {Object} context express-validator context containing req.
+ * @returns {boolean} True when both or neither coordinate is present.
+ * @sideeffects Throws a validation error for partial coordinate input.
+ */
 function coordinatesProvidedTogether(value, { req }) {
   const hasLatitude = String(req.body.latitude || '').trim() !== '';
   const hasLongitude = String(req.body.longitude || '').trim() !== '';
@@ -134,6 +170,16 @@ const businessValidationRules = [
     .withMessage('Years of experience must be a whole number between 0 and 80.'),
 ];
 
+/**
+ * Send validation failures as a consistent JSON response and remove uploaded
+ * files that should not remain after a rejected submission.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @param {Function} next
+ * @returns {void}
+ * @sideeffects Deletes rejected local uploads and sends a 400 response.
+ */
 function handleValidationResult(req, res, next) {
   const result = validationResult(req);
 

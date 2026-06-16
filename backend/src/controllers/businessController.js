@@ -1,3 +1,10 @@
+/**
+ * Business Controller
+ *
+ * Handles business listing creation, public listing reads, owner dashboard
+ * updates, admin review actions, ratings, comments, reports, payment checks,
+ * and owner password reset workflows.
+ */
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -11,6 +18,13 @@ const { escapeHtml, sendEmail } = require('../utils/email');
 const { sanitizeString } = require('../utils/sanitize');
 const { getOwnerJwtSecret } = require('../middleware/ownerAuth');
 
+/**
+ * Resolve the public path for an uploaded file.
+ *
+ * @param {Object|null} file Multer/Cloudinary file metadata.
+ * @returns {string} Public upload URL or empty string.
+ * @sideeffects None.
+ */
 function buildImagePath(file) {
   if (!file) {
     return '';
@@ -23,6 +37,14 @@ function buildImagePath(file) {
   return `/uploads/${file.filename}`;
 }
 
+/**
+ * Return the first uploaded file for a named field.
+ *
+ * @param {Request} req
+ * @param {string} fieldName Multipart field name.
+ * @returns {Object|null} Uploaded file metadata.
+ * @sideeffects None.
+ */
 function getUploadedFile(req, fieldName) {
   if (req.file && req.file.fieldname === fieldName) {
     return req.file;
@@ -32,11 +54,26 @@ function getUploadedFile(req, fieldName) {
   return Array.isArray(files) ? files[0] : null;
 }
 
+/**
+ * Return all uploaded files for a named multipart field.
+ *
+ * @param {Request} req
+ * @param {string} fieldName Multipart field name.
+ * @returns {Object[]} Uploaded file metadata array.
+ * @sideeffects None.
+ */
 function getUploadedFiles(req, fieldName) {
   const files = req.files && req.files[fieldName];
   return Array.isArray(files) ? files : [];
 }
 
+/**
+ * Remove a local upload that should not remain after a failed request.
+ *
+ * @param {string} filePath Public upload path.
+ * @returns {void}
+ * @sideeffects Deletes a local file when it exists.
+ */
 function cleanupUploadedFile(filePath) {
   if (!filePath || /^https?:\/\//i.test(filePath)) {
     return;
@@ -48,6 +85,13 @@ function cleanupUploadedFile(filePath) {
   }
 }
 
+/**
+ * Remove all uploaded files attached to the current request.
+ *
+ * @param {Request} req
+ * @returns {void}
+ * @sideeffects Deletes rejected local uploads.
+ */
 function cleanupRequestUploads(req) {
   const uploadedFiles = [
     req.file,
@@ -57,10 +101,24 @@ function cleanupRequestUploads(req) {
   uploadedFiles.forEach((file) => cleanupUploadedFile(buildImagePath(file)));
 }
 
+/**
+ * Hash an owner password reset token before storing it.
+ *
+ * @param {string} token Raw reset token.
+ * @returns {string} SHA-256 token hash.
+ * @sideeffects None.
+ */
 function hashResetToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+/**
+ * Build a signed owner JWT for dashboard access.
+ *
+ * @param {Object} business Business document.
+ * @returns {string} Signed owner JWT, or empty string when not configured.
+ * @sideeffects Reads owner JWT secret from environment.
+ */
 function buildOwnerToken(business) {
   const secret = getOwnerJwtSecret();
 
@@ -80,6 +138,13 @@ function buildOwnerToken(business) {
   );
 }
 
+/**
+ * Remove sensitive owner fields from a business response payload.
+ *
+ * @param {Object} business Business document or plain object.
+ * @returns {Object} Public-safe business payload.
+ * @sideeffects None.
+ */
 function buildBusinessPayload(business) {
   const payload = typeof business.toJSON === 'function' ? business.toJSON() : { ...business };
   delete payload.passwordHash;
@@ -88,6 +153,14 @@ function buildBusinessPayload(business) {
   return payload;
 }
 
+/**
+ * Build a Google Maps query URL from valid coordinates.
+ *
+ * @param {number} latitude Business latitude.
+ * @param {number} longitude Business longitude.
+ * @returns {string} Google Maps URL or empty string.
+ * @sideeffects None.
+ */
 function buildGoogleMapsUrl(latitude, longitude) {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return '';
@@ -96,6 +169,13 @@ function buildGoogleMapsUrl(latitude, longitude) {
   return `https://www.google.com/maps?q=${latitude},${longitude}`;
 }
 
+/**
+ * Normalize optional map coordinate fields from a request body.
+ *
+ * @param {Object} body Request body.
+ * @returns {Object} Location fields ready for assignment.
+ * @sideeffects None.
+ */
 function getLocationFields(body) {
   const hasLatitudeField = Object.prototype.hasOwnProperty.call(body, 'latitude');
   const hasLongitudeField = Object.prototype.hasOwnProperty.call(body, 'longitude');
@@ -125,6 +205,14 @@ function getLocationFields(body) {
   };
 }
 
+/**
+ * Validate owner password and confirmation fields.
+ *
+ * @param {string} password Submitted password.
+ * @param {string} confirmPassword Submitted confirmation password.
+ * @returns {string} Error message, or empty string when valid.
+ * @sideeffects None.
+ */
 function validatePasswordFields(password, confirmPassword) {
   if (!password || password.length < 6) {
     return 'Password must be at least 6 characters.';
@@ -137,6 +225,13 @@ function validatePasswordFields(password, confirmPassword) {
   return '';
 }
 
+/**
+ * Build MongoDB filters for public listing search.
+ *
+ * @param {Object} query Express query object.
+ * @returns {Object} MongoDB filter object.
+ * @sideeffects None.
+ */
 function buildFilters(query) {
   const filters = {
     status: 'approved',
@@ -170,6 +265,14 @@ function buildFilters(query) {
   return filters;
 }
 
+/**
+ * List approved and paid businesses for public browsing.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Queries MongoDB and sends JSON response.
+ */
 const getBusinesses = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
   const businesses = await Business.find(filters).sort({ createdAt: -1 });
@@ -181,6 +284,14 @@ const getBusinesses = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Load one approved and paid business profile by ID.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Queries MongoDB and sends JSON response.
+ */
 const getBusinessById = asyncHandler(async (req, res) => {
   const business = await Business.findOne({
     _id: req.params.id,
@@ -201,6 +312,13 @@ const getBusinessById = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Convert listing status fields into an owner-facing status message.
+ *
+ * @param {Object} business Business document.
+ * @returns {string} Human-readable status message.
+ * @sideeffects None.
+ */
 function getOwnerStatusMessage(business) {
   if (business.status === 'approved' && business.paymentStatus === 'verified') {
     return 'Congratulations! Your business listing has been approved and is now live on Maro Services Hub.';
@@ -225,6 +343,14 @@ function getOwnerStatusMessage(business) {
   return 'Your business was submitted. Please complete payment so admin can review your listing.';
 }
 
+/**
+ * Return post-submission listing status for an owner.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Queries MongoDB and sends JSON response.
+ */
 const getBusinessOwnerStatus = asyncHandler(async (req, res) => {
   const business = await Business.findById(req.params.id).select(
     'name status paymentStatus paymentReference'
@@ -264,6 +390,14 @@ const getBusinessOwnerStatus = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Create a new business listing from multipart form data.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Hashes password, saves listing, and may clean rejected uploads.
+ */
 const createBusiness = asyncHandler(async (req, res) => {
   const profileImage = getUploadedFile(req, 'profileImage');
   const serviceImages = getUploadedFiles(req, 'serviceImages').map(buildImagePath);
@@ -314,6 +448,14 @@ const createBusiness = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Authenticate a business owner by email or phone.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Updates owner last login timestamp and returns a JWT.
+ */
 const loginBusinessOwner = asyncHandler(async (req, res) => {
   const identifier = sanitizeString(
     req.body.identifier || req.body.emailOrPhone || req.body.email || req.body.phone || ''
@@ -368,6 +510,14 @@ const loginBusinessOwner = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Return the authenticated owner business document.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {void}
+ * @sideeffects Sends a sanitized business payload.
+ */
 const getOwnerMe = asyncHandler(async (req, res) => {
   res.json({
     success: true,
@@ -375,6 +525,14 @@ const getOwnerMe = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Update owner-managed business profile details.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Mutates and saves req.ownerBusiness.
+ */
 const updateOwnerProfile = asyncHandler(async (req, res) => {
   const business = req.ownerBusiness;
 
@@ -398,6 +556,14 @@ const updateOwnerProfile = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Update owner-managed business photos.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Saves new Cloudinary image URLs on req.ownerBusiness.
+ */
 const updateOwnerPhotos = asyncHandler(async (req, res) => {
   const business = req.ownerBusiness;
   const profileImage = getUploadedFile(req, 'profileImage');
@@ -420,6 +586,14 @@ const updateOwnerPhotos = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Start owner password reset when an account exists.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Stores reset token hash and may send reset email.
+ */
 const forgotOwnerPassword = asyncHandler(async (req, res) => {
   const genericMessage =
     'If an account exists with this email, a password reset link has been sent.';
@@ -468,6 +642,14 @@ If you did not request this, you can ignore this email.`;
   });
 });
 
+/**
+ * Complete owner password reset with a valid token.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Updates password hash and clears reset token fields.
+ */
 const resetOwnerPassword = asyncHandler(async (req, res) => {
   const email = sanitizeString(req.body.email || '').toLowerCase();
   const token = typeof req.body.token === 'string' ? req.body.token : '';
@@ -519,6 +701,14 @@ const resetOwnerPassword = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Load businesses that need admin payment or approval review.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Queries MongoDB and sends admin queue response.
+ */
 const getPendingBusinesses = asyncHandler(async (req, res) => {
   const businesses = await Business.find({
     status: { $ne: 'rejected' },
@@ -535,6 +725,14 @@ const getPendingBusinesses = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Load unresolved business reports for admin review.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Queries reports and populates basic business details.
+ */
 const getBusinessReports = asyncHandler(async (req, res) => {
   const reports = await Report.find({ status: 'pending' })
     .populate('businessId', 'name phone category state localGovernment status phoneVerified')
@@ -548,10 +746,25 @@ const getBusinessReports = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Check whether a string is a valid MongoDB ObjectId.
+ *
+ * @param {string} id Candidate ID.
+ * @returns {boolean} True when valid.
+ * @sideeffects None.
+ */
 function isValidObjectId(id) {
   return mongoose.Types.ObjectId.isValid(id);
 }
 
+/**
+ * Mark a business report as resolved.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Updates report status.
+ */
 const resolveBusinessReport = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
     return res.status(400).json({
@@ -579,6 +792,14 @@ const resolveBusinessReport = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Delete a business report from the admin queue.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Deletes a Report document.
+ */
 const deleteBusinessReport = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
     return res.status(400).json({
@@ -604,6 +825,17 @@ const deleteBusinessReport = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Shared helper for admin approval-state updates.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @param {Object} updates Fields to assign to the business.
+ * @param {string} message Success message.
+ * @param {Function} onUpdated Optional post-save callback.
+ * @returns {Promise<Response>}
+ * @sideeffects Mutates and saves a Business document.
+ */
 async function updateApprovalState(req, res, updates, message, onUpdated) {
   const business = await Business.findById(req.params.id);
 
@@ -629,6 +861,13 @@ async function updateApprovalState(req, res, updates, message, onUpdated) {
   });
 }
 
+/**
+ * Send the business approval notification email.
+ *
+ * @param {Object} business Business document.
+ * @returns {Promise<void>}
+ * @sideeffects Sends email through the shared email utility when possible.
+ */
 async function sendApprovalEmail(business) {
   console.log(`[email-hook] approve business reached for ${business._id}.`);
 
@@ -653,6 +892,14 @@ Customers can now find your business and contact you directly through WhatsApp o
   });
 }
 
+/**
+ * Send the business rejection notification email.
+ *
+ * @param {Object} business Business document.
+ * @param {Object} state Previous approval state context.
+ * @returns {Promise<void>}
+ * @sideeffects Sends email through the shared email utility when possible.
+ */
 async function sendRejectionEmail(business, state = {}) {
   console.log(`[email-hook] reject business reached for ${business._id}.`);
 
@@ -682,6 +929,14 @@ Please contact Maro Services Hub support for more information.`;
   });
 }
 
+/**
+ * Verify payment for a business using its saved Paystack reference.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Calls payment verification and updates payment fields.
+ */
 const verifyPayment = asyncHandler(async (req, res) => {
   const business = await Business.findById(req.params.id);
 
@@ -708,6 +963,14 @@ const verifyPayment = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Reject a listing payment from the admin dashboard.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Sets paymentStatus failed and status rejected.
+ */
 const rejectPayment = asyncHandler(async (req, res) =>
   updateApprovalState(
     req,
@@ -720,6 +983,14 @@ const rejectPayment = asyncHandler(async (req, res) =>
   )
 );
 
+/**
+ * Approve a paid business listing for public display.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Updates status and may send approval email.
+ */
 const approveBusiness = asyncHandler(async (req, res) => {
   const business = await Business.findById(req.params.id);
 
@@ -754,6 +1025,14 @@ const approveBusiness = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Mark a business phone number as verified.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Updates phoneVerified on the Business document.
+ */
 const verifyBusinessPhone = asyncHandler(async (req, res) => {
   const business = await Business.findById(req.params.id);
 
@@ -774,6 +1053,14 @@ const verifyBusinessPhone = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Reject a business listing after admin review.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Updates status and may send rejection email.
+ */
 const rejectBusiness = asyncHandler(async (req, res) =>
   updateApprovalState(
     req,
@@ -786,6 +1073,14 @@ const rejectBusiness = asyncHandler(async (req, res) =>
   )
 );
 
+/**
+ * Update business details through the admin-compatible edit endpoint.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Saves business fields and may replace profile image.
+ */
 const updateBusiness = asyncHandler(async (req, res) => {
   const business = await Business.findById(req.params.id);
 
@@ -826,6 +1121,14 @@ const updateBusiness = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Delete a business listing and related reports.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Deletes uploads, reports, and the Business document.
+ */
 const deleteBusiness = asyncHandler(async (req, res) => {
   const business = await Business.findById(req.params.id);
 
@@ -849,6 +1152,14 @@ const deleteBusiness = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Add a visitor rating to a business profile.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Updates rating aggregate fields.
+ */
 const rateBusiness = asyncHandler(async (req, res) => {
   const rating = req.body.rating;
 
@@ -886,6 +1197,14 @@ const rateBusiness = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Add a visitor comment to an approved business profile.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Appends a comment to the Business document.
+ */
 const addBusinessComment = asyncHandler(async (req, res) => {
   const name = sanitizeString(String(req.body.name || ''));
   const message = sanitizeString(String(req.body.message || ''));
@@ -940,6 +1259,14 @@ const addBusinessComment = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Submit a visitor report for an approved business.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Creates a Report document and may email admins.
+ */
 const reportBusiness = asyncHandler(async (req, res) => {
   const reason = sanitizeString(String(req.body.reason || ''));
   const message = sanitizeString(String(req.body.message || ''));

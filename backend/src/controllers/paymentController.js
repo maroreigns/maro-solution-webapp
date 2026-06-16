@@ -1,3 +1,9 @@
+/**
+ * Payment Controller
+ *
+ * Handles Paystack payment initialization, verification, listing payment state,
+ * and payment confirmation email notifications.
+ */
 const crypto = require('crypto');
 const { Business } = require('../models/Business');
 const { asyncHandler } = require('../utils/asyncHandler');
@@ -7,6 +13,12 @@ const { sanitizeString } = require('../utils/sanitize');
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const PAYSTACK_CALLBACK_BASE_URL = 'https://marosolutionapp.com/listings.html';
 
+/**
+ * Read the Paystack secret key or raise a public configuration error.
+ *
+ * @returns {string} Paystack secret key.
+ * @sideeffects Throws when payment is not configured.
+ */
 function getPaystackSecretKey() {
   const secretKey = process.env.PAYSTACK_SECRET_KEY;
 
@@ -20,6 +32,12 @@ function getPaystackSecretKey() {
   return secretKey;
 }
 
+/**
+ * Convert configured listing fee from naira to kobo.
+ *
+ * @returns {number} Listing fee in kobo.
+ * @sideeffects Reads LISTING_FEE_NAIRA from the environment.
+ */
 function getListingFeeKobo() {
   const configuredListingFee = Number(process.env.LISTING_FEE_NAIRA);
   const listingFeeNaira =
@@ -30,11 +48,25 @@ function getListingFeeKobo() {
   return Math.round(listingFeeNaira * 100);
 }
 
+/**
+ * Create a unique Paystack reference for a listing payment.
+ *
+ * @param {string|ObjectId} businessId Business identifier.
+ * @returns {string} Payment reference.
+ * @sideeffects Uses random bytes and the current timestamp.
+ */
 function createPaymentReference(businessId) {
   const suffix = crypto.randomBytes(6).toString('hex');
   return `maro_${businessId}_${Date.now()}_${suffix}`;
 }
 
+/**
+ * Build the public payment return URL used by Paystack.
+ *
+ * @param {string} reference Paystack transaction reference.
+ * @returns {string} Callback URL containing payment query parameters.
+ * @sideeffects None.
+ */
 function buildCallbackUrl(reference) {
   const callbackUrl = new URL(PAYSTACK_CALLBACK_BASE_URL);
   callbackUrl.searchParams.set('payment', 'success');
@@ -42,6 +74,14 @@ function buildCallbackUrl(reference) {
   return callbackUrl.toString();
 }
 
+/**
+ * Call the Paystack API with shared authorization and error handling.
+ *
+ * @param {string} path Paystack API path.
+ * @param {Object} options Fetch options.
+ * @returns {Promise<Object>} Paystack response data.
+ * @sideeffects Performs a network request to Paystack.
+ */
 async function callPaystack(path, options = {}) {
   const response = await fetch(PAYSTACK_BASE_URL + path, {
     ...options,
@@ -64,6 +104,13 @@ async function callPaystack(path, options = {}) {
   return payload.data || {};
 }
 
+/**
+ * Locate the business attached to a verified Paystack transaction.
+ *
+ * @param {Object} paystackData Verified Paystack transaction data.
+ * @returns {Promise<Object|null>} Matching Business document.
+ * @sideeffects Queries MongoDB.
+ */
 async function findBusinessForVerifiedPayment(paystackData) {
   const reference = sanitizeString(paystackData.reference || '');
   const metadataBusinessId = sanitizeString(
@@ -79,6 +126,13 @@ async function findBusinessForVerifiedPayment(paystackData) {
   return business;
 }
 
+/**
+ * Verify a Paystack reference and persist successful payment details.
+ *
+ * @param {string} reference Paystack transaction reference.
+ * @returns {Promise<Object>} Updated Business document.
+ * @sideeffects Calls Paystack, updates listing payment fields, and may send email.
+ */
 async function verifyAndSavePayment(reference) {
   const cleanReference = sanitizeString(reference || '');
 
@@ -162,6 +216,14 @@ We will notify you once your listing is approved.`;
   return business;
 }
 
+/**
+ * Initialize Paystack payment for a submitted business listing.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Creates Paystack transaction and stores reference/access data.
+ */
 const initializePayment = asyncHandler(async (req, res) => {
   const business = await Business.findById(req.params.businessId);
 
@@ -214,6 +276,14 @@ const initializePayment = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Verify a Paystack reference submitted by the frontend.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {Promise<void>}
+ * @sideeffects Delegates payment verification and returns updated business data.
+ */
 const verifyPaystackReference = asyncHandler(async (req, res) => {
   const business = await verifyAndSavePayment(req.body.reference);
 

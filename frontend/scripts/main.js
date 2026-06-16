@@ -1,4 +1,7 @@
 (function () {
+  /* ==========================================
+     APPLICATION CONFIGURATION
+  ========================================== */
   const appData = window.MaroData || {
     nigeriaStatesAndLgas: {},
     nigeriaStates: [],
@@ -31,6 +34,10 @@
   const adminJwtStorageKey = 'admin_jwt';
   const ownerJwtStorageKey = 'owner_jwt';
   const ownerListingStorageKey = 'maro-owner-listing-status';
+
+  /* ==========================================
+     SHARED UI INITIALIZATION
+  ========================================== */
 
   function initializeSharedUi() {
     setupTheme();
@@ -134,6 +141,10 @@
     refreshLgas();
   }
 
+  /* ==========================================
+     STORAGE AND FORMATTING HELPERS
+  ========================================== */
+
   function firstLetterFromName(name) {
     return String(name || 'M').trim().charAt(0).toUpperCase() || 'M';
   }
@@ -206,6 +217,10 @@
     );
   }
 
+  /* ==========================================
+     RATING SYSTEM
+  ========================================== */
+
   function createRatingControls(business) {
     const businessId = getBusinessId(business);
     const ratingAverage = Number(business.ratingAverage) || 0;
@@ -243,6 +258,10 @@
     ].join('');
   }
 
+  /* ==========================================
+     WHATSAPP CONTACT FUNCTIONS
+  ========================================== */
+
   function normalizeWhatsapp(value) {
     const digits = String(value || '').replace(/[^\d]/g, '');
 
@@ -260,6 +279,10 @@
 
     return digits;
   }
+
+  /* ==========================================
+     API AND ASSET URL HELPERS
+  ========================================== */
 
   function normalizeApiRootUrl(url) {
     if (!url) {
@@ -364,6 +387,10 @@
     return '<span class="tag verified-badge">Verified by Maro Services Hub</span>';
   }
 
+  /* ==========================================
+     GOOGLE MAPS FUNCTIONS
+  ========================================== */
+
   function hasMapCoordinates(business) {
     const latitude = Number(business && business.latitude);
     const longitude = Number(business && business.longitude);
@@ -419,6 +446,10 @@
       throw new Error('Longitude must be a number between -180 and 180.');
     }
   }
+
+  /* ==========================================
+     BUSINESS LISTING CARD RENDERING
+  ========================================== */
 
   function createAdminDeleteButton(business) {
     const businessId = getBusinessId(business);
@@ -593,6 +624,10 @@
       '</article>',
     ].join('');
   }
+
+  /* ==========================================
+     REPORTS AND COMMENTS RENDERING
+  ========================================== */
 
   function createReportForm() {
     return [
@@ -796,6 +831,10 @@
     ].join('');
   }
 
+  /* ==========================================
+     IMAGE PREVIEW AND LIGHTBOX FUNCTIONS
+  ========================================== */
+
   function setupProviderAvatarFallbacks() {
     document.addEventListener(
       'error',
@@ -885,6 +924,10 @@
       ? 'Live listings need a local server. The layout and styling will still work when these HTML files are opened directly.'
       : 'Unable to load businesses right now. Please try again shortly.';
   }
+
+  /* ==========================================
+     API REQUEST FUNCTIONS
+  ========================================== */
 
   async function fetchBusinesses(params) {
     if (isFileProtocol) {
@@ -1337,6 +1380,10 @@
     });
   }
 
+  /* ==========================================
+     HOME PAGE FUNCTIONS
+  ========================================== */
+
   function initializeHomePage() {
     populateSelect(document.getElementById('hero-category'), appData.businessCategories, 'All categories');
     wireStateAndLgaSelects(
@@ -1562,6 +1609,10 @@
       }
     });
   }
+
+  /* ==========================================
+     SEARCH, FILTERS, AND LISTING LOADING
+  ========================================== */
 
   function initializeListingsPage() {
     const isDirectAdminPage = page === 'admin';
@@ -1818,6 +1869,10 @@
       feedbackNode.className = 'form-feedback' + (isError ? ' error' : ' success');
       feedbackNode.textContent = message || '';
     }
+
+    /* ==========================================
+       ADMIN FUNCTIONS
+    ========================================== */
 
     function refreshAdminButton() {
       const adminEnabled = isAdminLoggedIn();
@@ -2486,6 +2541,10 @@
       });
     }
   }
+
+  /* ==========================================
+     OWNER DASHBOARD FUNCTIONS
+  ========================================== */
 
   function initializeDashboardPage() {
     const authPanel = document.getElementById('owner-auth-panel');

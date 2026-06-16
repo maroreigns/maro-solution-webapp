@@ -1,7 +1,22 @@
+/**
+ * Admin Authentication Middleware
+ *
+ * Verifies admin JWT bearer tokens and attaches the authenticated admin record
+ * to req.admin for protected dashboard actions.
+ */
 const jwt = require('jsonwebtoken');
 const { Admin } = require('../models/Admin');
 const { asyncHandler } = require('../utils/asyncHandler');
 
+/**
+ * Require a valid admin bearer token.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @param {Function} next
+ * @returns {Promise<void>}
+ * @sideeffects Reads Authorization header and assigns req.admin on success.
+ */
 const requireAdminAuth = asyncHandler(async (req, res, next) => {
   const authHeader = req.get('authorization') || '';
   const [scheme, token] = authHeader.split(' ');

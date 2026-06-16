@@ -1,3 +1,9 @@
+/**
+ * Admin Routes
+ *
+ * Mount path: /api/admin
+ * Provides admin session endpoints for the admin dashboard.
+ */
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { getAdminMe, loginAdmin } = require('../controllers/adminController');
@@ -17,7 +23,12 @@ const adminLoginLimiter = rateLimit({
   },
 });
 
+// POST /api/admin/login
+// Authenticate an admin and return a dashboard JWT.
 router.post('/login', adminLoginLimiter, sanitizeRequestBody, loginAdmin);
+
+// GET /api/admin/me
+// Return the authenticated admin profile for session checks.
 router.get('/me', requireAdminAuth, getAdminMe);
 
 module.exports = { adminRoutes: router };

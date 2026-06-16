@@ -1,3 +1,9 @@
+/**
+ * Payment Routes
+ *
+ * Mount path: /api/payments
+ * Provides Paystack initialization and reference verification endpoints.
+ */
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const {
@@ -19,6 +25,8 @@ const paymentLimiter = rateLimit({
   },
 });
 
+// POST /api/payments/initialize/:businessId
+// Create a Paystack transaction for a submitted business listing.
 router.post(
   '/initialize/:businessId',
   paymentLimiter,
@@ -26,6 +34,8 @@ router.post(
   initializePayment
 );
 
+// POST /api/payments/verify
+// Verify a Paystack payment reference after payment return.
 router.post('/verify', paymentLimiter, sanitizeRequestBody, verifyPaystackReference);
 
 module.exports = { paymentRoutes: router };

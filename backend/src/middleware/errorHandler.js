@@ -1,3 +1,18 @@
+/**
+ * Error Handling Middleware
+ *
+ * Normalizes unknown routes, upload errors, validation errors, and unhandled
+ * exceptions into consistent JSON API responses.
+ */
+
+/**
+ * Return a JSON 404 for unknown API or page requests.
+ *
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {void}
+ * @sideeffects Sends a 404 JSON response.
+ */
 function notFoundHandler(req, res) {
   res.status(404).json({
     success: false,
@@ -5,6 +20,16 @@ function notFoundHandler(req, res) {
   });
 }
 
+/**
+ * Central Express error handler.
+ *
+ * @param {Error} error Error produced by route handlers or middleware.
+ * @param {Request} req
+ * @param {Response} res
+ * @param {Function} next
+ * @returns {void}
+ * @sideeffects Logs server errors and sends a JSON error response.
+ */
 function errorHandler(error, req, res, next) {
   const statusCode = error.statusCode || error.status || 500;
   const isProduction = process.env.NODE_ENV === 'production';

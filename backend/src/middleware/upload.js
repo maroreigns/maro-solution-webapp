@@ -1,3 +1,9 @@
+/**
+ * Upload Middleware
+ *
+ * Configures Multer with Cloudinary storage for profile images and service
+ * photos while enforcing file type and size limits.
+ */
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
@@ -13,6 +19,13 @@ cloudinary.config({
   secure: true,
 });
 
+/**
+ * Build a stable Cloudinary public ID from the uploaded filename.
+ *
+ * @param {Object} file Multer file metadata.
+ * @returns {string} Timestamped, URL-safe public ID.
+ * @sideeffects None.
+ */
 function buildPublicId(file) {
   const extension = path.extname(file.originalname).toLowerCase();
   const safeBaseName = path
@@ -24,6 +37,12 @@ function buildPublicId(file) {
   return `${Date.now()}-${safeBaseName || 'business'}`;
 }
 
+/**
+ * Ensure required Cloudinary environment variables exist before upload.
+ *
+ * @returns {void}
+ * @sideeffects Throws a 500 error when Cloudinary is not configured.
+ */
 function ensureCloudinaryConfig() {
   const requiredVariables = [
     'CLOUDINARY_CLOUD_NAME',
@@ -55,6 +74,15 @@ const storage = new CloudinaryStorage({
   },
 });
 
+/**
+ * Validate upload extension and MIME type.
+ *
+ * @param {Request} req
+ * @param {Object} file Multer file metadata.
+ * @param {Function} cb Multer callback.
+ * @returns {void}
+ * @sideeffects Passes validation errors to Multer when files are unsupported.
+ */
 function fileFilter(req, file, cb) {
   const extension = path.extname(file.originalname).toLowerCase();
 

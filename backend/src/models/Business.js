@@ -1,18 +1,27 @@
+/**
+ * Business Model
+ *
+ * Stores public listing details, owner account credentials, payment state,
+ * approval state, ratings, comments, uploaded media, and optional map location.
+ */
 const mongoose = require('mongoose');
 
 const businessSchema = new mongoose.Schema(
   {
+    // Public business or provider name shown across listings and profiles.
     name: {
       type: String,
       required: true,
       trim: true,
       maxlength: 120,
     },
+    // Service category used for browsing and filtering public listings.
     category: {
       type: String,
       required: true,
       trim: true,
     },
+    // Nigerian state and local government used for location-based search.
     state: {
       type: String,
       required: true,
@@ -23,6 +32,7 @@ const businessSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    // Primary contact details shown to visitors and used for owner login.
     phone: {
       type: String,
       required: true,
@@ -38,6 +48,7 @@ const businessSchema = new mongoose.Schema(
       lowercase: true,
       maxlength: 120,
     },
+    // Human-readable location; coordinates below are optional map helpers.
     address: {
       type: String,
       required: true,
@@ -59,6 +70,7 @@ const businessSchema = new mongoose.Schema(
       trim: true,
       maxlength: 220,
     },
+    // Cloudinary-hosted profile image and optional service gallery images.
     profileImage: {
       type: String,
       default: '',
@@ -73,6 +85,7 @@ const businessSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Visitor comments stored directly with the listing for profile display.
     comments: [
       {
         name: {
@@ -91,6 +104,7 @@ const businessSchema = new mongoose.Schema(
         },
       },
     ],
+    // Admin review state and Paystack payment lifecycle.
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],
@@ -132,6 +146,7 @@ const businessSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    // Rating aggregate fields avoid recalculating averages from every vote.
     rating: {
       type: Number,
       min: 0,
@@ -159,6 +174,7 @@ const businessSchema = new mongoose.Schema(
       min: 0,
       max: 80,
     },
+    // Owner authentication and password reset fields are never returned in JSON.
     passwordHash: {
       type: String,
       select: false,

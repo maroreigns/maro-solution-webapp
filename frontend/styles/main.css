@@ -1,3 +1,7 @@
+/* ==========================================
+   DESIGN TOKENS
+========================================== */
+
 :root {
   --bg: #ADD8E6;
   --bg-elevated: rgba(255, 255, 255, 0.86);
@@ -28,6 +32,10 @@ body.dark-mode {
   --primary-soft: rgba(106, 168, 255, 0.14);
   --shadow: 0 28px 60px rgba(0, 0, 0, 0.28);
 }
+
+/* ==========================================
+   BASE ELEMENTS
+========================================== */
 
 * {
   box-sizing: border-box;
@@ -80,6 +88,10 @@ button {
   width: min(1160px, calc(100% - 2rem));
   margin: 0 auto;
 }
+
+/* ==========================================
+   HEADER AND NAVIGATION
+========================================== */
 
 .site-header {
   position: sticky;
@@ -199,6 +211,10 @@ body.dark-mode .site-header {
   border-radius: 999px;
 }
 
+/* ==========================================
+   HERO AND PAGE LAYOUT
+========================================== */
+
 .hero,
 .page-main {
   padding-top: 2rem;
@@ -262,6 +278,10 @@ body.dark-mode .site-header {
   gap: 0.85rem;
 }
 
+/* ==========================================
+   BUTTONS AND LINKS
+========================================== */
+
 .button,
 .text-link {
   transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
@@ -305,6 +325,10 @@ body.dark-mode .site-header {
   background: linear-gradient(135deg, #e64f4f, #b13333);
   box-shadow: var(--shadow);
 }
+
+/* ==========================================
+   CARDS AND FORMS
+========================================== */
 
 .card,
 .cta-banner {
@@ -385,6 +409,10 @@ textarea:focus-visible {
   border-color: var(--primary);
 }
 
+/* ==========================================
+   SECTIONS AND CATEGORY CHIPS
+========================================== */
+
 .section {
   padding: 2.5rem 0;
 }
@@ -414,6 +442,10 @@ textarea:focus-visible {
   background: var(--bg-strong);
   font-weight: 700;
 }
+
+/* ==========================================
+   BUSINESS CARDS
+========================================== */
 
 .provider-grid {
   display: grid;
@@ -524,6 +556,10 @@ textarea:focus-visible {
   margin-top: auto;
 }
 
+/* ==========================================
+   BUSINESS PROFILE MEDIA AND COMMENTS
+========================================== */
+
 .profile-section {
   display: grid;
   gap: 0.85rem;
@@ -617,6 +653,10 @@ textarea:focus-visible {
   font-weight: 600;
 }
 
+/* ==========================================
+   ADMIN DASHBOARD
+========================================== */
+
 .admin-panel {
   margin-bottom: 1.25rem;
 }
@@ -684,6 +724,10 @@ textarea:focus-visible {
   flex-wrap: wrap;
   gap: 0.65rem;
 }
+
+/* ==========================================
+   PAYMENT, RATINGS, AND STATUS MESSAGES
+========================================== */
 
 .payment-instructions {
   display: grid;
@@ -845,6 +889,10 @@ textarea:focus-visible {
   color: #b13333;
   border-color: rgba(230, 79, 79, 0.2);
 }
+
+/* ==========================================
+   IMAGE PREVIEW AND LIGHTBOX
+========================================== */
 
 .submission-loading {
   display: flex;
@@ -1010,6 +1058,10 @@ body.has-open-lightbox {
   margin: 1.25rem 0;
 }
 
+/* ==========================================
+   FOOTER AND DASHBOARD LAYOUT
+========================================== */
+
 .cta-banner {
   display: flex;
   align-items: center;
@@ -1041,6 +1093,10 @@ body.has-open-lightbox {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
+
+/* ==========================================
+   OWNER DASHBOARD
+========================================== */
 
 .dashboard-layout {
   display: grid;
@@ -1127,6 +1183,10 @@ body.has-open-lightbox {
   white-space: nowrap;
   border: 0;
 }
+
+/* ==========================================
+   RESPONSIVE BREAKPOINTS
+========================================== */
 
 @media (max-width: 900px) {
   .hero-grid,

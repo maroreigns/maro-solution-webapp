@@ -1,19 +1,27 @@
+/**
+ * Report Model
+ *
+ * Stores visitor-submitted trust and safety reports for business listings.
+ */
 const mongoose = require('mongoose');
 
 const reportSchema = new mongoose.Schema(
   {
+    // Listing being reported; populated in admin report review screens.
     businessId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Business',
       required: true,
       index: true,
     },
+    // Short required reason shown in the admin report queue.
     reason: {
       type: String,
       required: true,
       trim: true,
       maxlength: 120,
     },
+    // Optional reporter details for follow-up context.
     message: {
       type: String,
       default: '',
@@ -32,6 +40,7 @@ const reportSchema = new mongoose.Schema(
       trim: true,
       maxlength: 120,
     },
+    // Tracks whether an admin has reviewed and resolved the report.
     status: {
       type: String,
       enum: ['pending', 'resolved'],
