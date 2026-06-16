@@ -364,6 +364,62 @@
     return '<span class="tag verified-badge">Verified by Maro Services Hub</span>';
   }
 
+  function hasMapCoordinates(business) {
+    const latitude = Number(business && business.latitude);
+    const longitude = Number(business && business.longitude);
+
+    return (
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180
+    );
+  }
+
+  function getGoogleMapsUrl(business) {
+    if (!hasMapCoordinates(business)) {
+      return '';
+    }
+
+    return (
+      business.googleMapsUrl ||
+      'https://www.google.com/maps?q=' +
+        encodeURIComponent(Number(business.latitude) + ',' + Number(business.longitude))
+    );
+  }
+
+  function createLocationAvailableTag(business) {
+    return hasMapCoordinates(business)
+      ? '<span class="tag location-tag">&#128205; Location Available</span>'
+      : '';
+  }
+
+  function validateLocationInput(formData) {
+    const latitudeText = String(formData.get('latitude') || '').trim();
+    const longitudeText = String(formData.get('longitude') || '').trim();
+
+    if (!latitudeText && !longitudeText) {
+      return;
+    }
+
+    if (!latitudeText || !longitudeText) {
+      throw new Error('Latitude and longitude must be provided together.');
+    }
+
+    const latitude = Number(latitudeText);
+    const longitude = Number(longitudeText);
+
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+      throw new Error('Latitude must be a number between -90 and 90.');
+    }
+
+    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      throw new Error('Longitude must be a number between -180 and 180.');
+    }
+  }
+
   function createAdminDeleteButton(business) {
     const businessId = getBusinessId(business);
 
@@ -406,6 +462,7 @@
       '        <span class="tag">' + escapeHtml(business.category) + '</span>',
       '        <span class="tag">' + escapeHtml(business.state) + '</span>',
       '        ' + createVerifiedBadge(business),
+      '        ' + createLocationAvailableTag(business),
       '      </div>',
       '    </div>',
       '  </div>',
@@ -438,6 +495,7 @@
     const serviceImages = Array.isArray(business.serviceImages) ? business.serviceImages : [];
     const comments = Array.isArray(business.comments) ? business.comments : [];
     const profileImageUrl = resolveAssetUrl(business.profileImage);
+    const googleMapsUrl = getGoogleMapsUrl(business);
     const profileMarkup = business.profileImage
       ? '<img src="' +
         profileImageUrl +
@@ -466,6 +524,7 @@
       '        <span class="tag">' + escapeHtml(business.category) + '</span>',
       '        <span class="tag">' + escapeHtml(business.state) + '</span>',
       '        ' + createVerifiedBadge(business),
+      '        ' + createLocationAvailableTag(business),
       '      </div>',
       '    </div>',
       '  </div>',
@@ -521,6 +580,11 @@
       '    <a class="button button-secondary" href="tel:+' +
         normalizeWhatsapp(business.phone) +
         '">Call</a>',
+      googleMapsUrl
+        ? '    <a class="button button-primary location-button" target="_blank" rel="noopener noreferrer" href="' +
+          escapeHtml(googleMapsUrl) +
+          '">&#128205; Get Directions</a>'
+        : '',
       '    <button class="button button-secondary" type="button" id="report-business-toggle">Report this business</button>',
       '  </div>',
       '  <section class="profile-section trust-disclaimer"><p>Maro Services Hub verifies listings before approval. However, users are advised to confirm service details before booking them.</p></section>',
@@ -703,6 +767,8 @@
       '    <span><strong>Phone:</strong> ' + escapeHtml(business.phone) + '</span>',
       '    <span><strong>Email:</strong> ' + escapeHtml(business.email || 'Not provided') + '</span>',
       '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
+      '    <span><strong>Latitude:</strong> ' + escapeHtml(business.latitude === undefined || business.latitude === null ? 'Not provided' : String(business.latitude)) + '</span>',
+      '    <span><strong>Longitude:</strong> ' + escapeHtml(business.longitude === undefined || business.longitude === null ? 'Not provided' : String(business.longitude)) + '</span>',
       '    <span><strong>Amount paid:</strong> ' + escapeHtml(amountPaid) + '</span>',
       '    <span><strong>Payment reference:</strong> ' + escapeHtml(business.paymentReference || 'Not provided yet') + '</span>',
       '    <span><strong>Phone verification:</strong> ' + (business.phoneVerified ? 'Verified' : 'Not verified') + '</span>',
@@ -2310,6 +2376,8 @@
           throw new Error('Confirm password must match password.');
         }
 
+        validateLocationInput(formData);
+
         const response = await fetch(apiBaseUrl, {
           method: 'POST',
           body: formData,
@@ -2510,6 +2578,8 @@
         '<div><dt>Phone</dt><dd>' + escapeHtml(business.phone) + '</dd></div>',
         '<div><dt>Email</dt><dd>' + escapeHtml(business.email) + '</dd></div>',
         '<div><dt>Address</dt><dd>' + escapeHtml(business.address) + '</dd></div>',
+        '<div><dt>Latitude</dt><dd>' + escapeHtml(business.latitude === undefined || business.latitude === null ? 'Not provided' : String(business.latitude)) + '</dd></div>',
+        '<div><dt>Longitude</dt><dd>' + escapeHtml(business.longitude === undefined || business.longitude === null ? 'Not provided' : String(business.longitude)) + '</dd></div>',
         '<div><dt>Service Description</dt><dd>' + escapeHtml(business.serviceDescription || 'Not provided') + '</dd></div>',
         '<div><dt>Experience</dt><dd>' + escapeHtml(String(business.yearsExperience || 0)) + ' years</dd></div>',
         '<div><dt>Status</dt><dd>' + escapeHtml(business.status) + '</dd></div>',
@@ -2529,6 +2599,8 @@
       profileForm.elements.phone.value = business.phone || '';
       profileForm.elements.email.value = business.email || '';
       profileForm.elements.address.value = business.address || '';
+      profileForm.elements.latitude.value = business.latitude === undefined || business.latitude === null ? '' : business.latitude;
+      profileForm.elements.longitude.value = business.longitude === undefined || business.longitude === null ? '' : business.longitude;
       profileForm.elements.serviceDescription.value = business.serviceDescription || '';
       profileForm.elements.yearsExperience.value = business.yearsExperience || 0;
     }
@@ -2666,6 +2738,7 @@
       setFeedback(dashboardFeedback, '', false);
 
       try {
+        validateLocationInput(formData);
         const business = await updateOwnerProfile(profileData);
         renderDashboard(business);
         setFeedback(dashboardFeedback, 'Business details updated successfully.', false);

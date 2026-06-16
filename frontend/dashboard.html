@@ -160,6 +160,20 @@
                 Address or nearby location
                 <input type="text" name="address" required />
               </label>
+              <fieldset class="form-fieldset">
+                <legend>Business Location <span>(optional)</span></legend>
+                <p class="field-help">Paste coordinates from Google Maps if available.</p>
+                <div class="form-row">
+                  <label>
+                    Latitude
+                    <input type="number" name="latitude" min="-90" max="90" step="any" placeholder="6.5244" />
+                  </label>
+                  <label>
+                    Longitude
+                    <input type="number" name="longitude" min="-180" max="180" step="any" placeholder="3.3792" />
+                  </label>
+                </div>
+              </fieldset>
               <label>
                 How will you serve your customers?
                 <textarea name="serviceDescription" rows="4"></textarea>

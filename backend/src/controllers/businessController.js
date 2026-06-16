@@ -88,6 +88,43 @@ function buildBusinessPayload(business) {
   return payload;
 }
 
+function buildGoogleMapsUrl(latitude, longitude) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return '';
+  }
+
+  return `https://www.google.com/maps?q=${latitude},${longitude}`;
+}
+
+function getLocationFields(body) {
+  const hasLatitudeField = Object.prototype.hasOwnProperty.call(body, 'latitude');
+  const hasLongitudeField = Object.prototype.hasOwnProperty.call(body, 'longitude');
+
+  if (!hasLatitudeField && !hasLongitudeField) {
+    return {};
+  }
+
+  const latitudeText = String(body.latitude || '').trim();
+  const longitudeText = String(body.longitude || '').trim();
+
+  if (!latitudeText && !longitudeText) {
+    return {
+      latitude: undefined,
+      longitude: undefined,
+      googleMapsUrl: '',
+    };
+  }
+
+  const latitude = Number(latitudeText);
+  const longitude = Number(longitudeText);
+
+  return {
+    latitude,
+    longitude,
+    googleMapsUrl: buildGoogleMapsUrl(latitude, longitude),
+  };
+}
+
 function validatePasswordFields(password, confirmPassword) {
   if (!password || password.length < 6) {
     return 'Password must be at least 6 characters.';
@@ -245,6 +282,7 @@ const createBusiness = asyncHandler(async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  const locationFields = getLocationFields(req.body);
 
   const business = await Business.create({
     name: req.body.name,
@@ -254,6 +292,7 @@ const createBusiness = asyncHandler(async (req, res) => {
     phone: req.body.phone,
     email: req.body.email,
     address: req.body.address,
+    ...locationFields,
     profileImage: buildImagePath(profileImage),
     serviceDescription: sanitizeString(req.body.serviceDescription) || '',
     serviceImages,
@@ -346,6 +385,7 @@ const updateOwnerProfile = asyncHandler(async (req, res) => {
   business.phone = req.body.phone;
   business.email = req.body.email;
   business.address = req.body.address;
+  Object.assign(business, getLocationFields(req.body));
   business.serviceDescription = sanitizeString(req.body.serviceDescription) || '';
   business.yearsExperience = Number(req.body.yearsExperience);
 
@@ -773,6 +813,7 @@ const updateBusiness = asyncHandler(async (req, res) => {
   business.phone = req.body.phone;
   business.email = req.body.email;
   business.address = req.body.address;
+  Object.assign(business, getLocationFields(req.body));
   business.profileImage = newProfileImage;
   business.yearsExperience = Number(req.body.yearsExperience);
 

@@ -44,6 +44,21 @@ const businessSchema = new mongoose.Schema(
       trim: true,
       maxlength: 180,
     },
+    latitude: {
+      type: Number,
+      min: -90,
+      max: 90,
+    },
+    longitude: {
+      type: Number,
+      min: -180,
+      max: 180,
+    },
+    googleMapsUrl: {
+      type: String,
+      trim: true,
+      maxlength: 220,
+    },
     profileImage: {
       type: String,
       default: '',

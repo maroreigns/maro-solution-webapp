@@ -38,6 +38,17 @@ function validateLocalGovernment(value, { req }) {
   return true;
 }
 
+function coordinatesProvidedTogether(value, { req }) {
+  const hasLatitude = String(req.body.latitude || '').trim() !== '';
+  const hasLongitude = String(req.body.longitude || '').trim() !== '';
+
+  if (hasLatitude !== hasLongitude) {
+    throw new Error('Latitude and longitude must be provided together.');
+  }
+
+  return true;
+}
+
 const businessValidationRules = [
   body('name')
     .trim()
@@ -96,6 +107,18 @@ const businessValidationRules = [
     .isLength({ min: 5, max: 180 })
     .withMessage('Address must be between 5 and 180 characters.')
     .custom(rejectSuspiciousText),
+  body('latitude')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('Latitude must be a number between -90 and 90.')
+    .custom(coordinatesProvidedTogether),
+  body('longitude')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('Longitude must be a number between -180 and 180.')
+    .custom(coordinatesProvidedTogether),
   body('serviceDescription')
     .optional({ checkFalsy: true })
     .trim()
