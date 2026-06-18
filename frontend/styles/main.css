@@ -576,6 +576,34 @@ textarea:focus-visible {
   color: var(--text-muted);
 }
 
+.share-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.share-button {
+  min-width: 8.5rem;
+}
+
+.share-feedback {
+  color: #167040;
+  font-size: 0.94rem;
+  font-weight: 700;
+  min-height: 1.25em;
+}
+
+.share-feedback.error {
+  color: #b13333;
+}
+
 .service-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

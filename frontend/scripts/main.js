@@ -447,6 +447,82 @@
     }
   }
 
+  function buildShareText(business, businessUrl) {
+    const businessName = business && business.name ? business.name : 'this business';
+    const category = business && business.category ? business.category : 'Not specified';
+    const state = business && business.state ? business.state : '';
+    const localGovernment = business && business.localGovernment ? business.localGovernment : '';
+    const locationParts = [state, localGovernment].filter(Boolean);
+    const locationText = locationParts.length ? locationParts.join(', ') : 'Not specified';
+
+    return (
+      'Check out ' +
+      businessName +
+      ' on Maro Services Hub. Category: ' +
+      category +
+      '. Location: ' +
+      locationText +
+      '. View here: ' +
+      businessUrl
+    );
+  }
+
+  function createShareSection(business) {
+    const businessUrl = window.location.href;
+    const shareText = buildShareText(business, businessUrl);
+    const encodedShareText = encodeURIComponent(shareText);
+    const encodedBusinessUrl = encodeURIComponent(businessUrl);
+
+    return [
+      '<section class="profile-section share-section">',
+      '  <div class="share-section-heading">',
+      '    <h4>Share this business</h4>',
+      '    <span class="share-feedback" id="share-feedback" aria-live="polite"></span>',
+      '  </div>',
+      '  <div class="share-actions">',
+      '    <a class="button button-whatsapp share-button" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=' +
+        encodedShareText +
+        '">WhatsApp</a>',
+      '    <a class="button button-secondary share-button" target="_blank" rel="noopener noreferrer" href="https://www.facebook.com/sharer/sharer.php?u=' +
+        encodedBusinessUrl +
+        '">Facebook</a>',
+      '    <a class="button button-secondary share-button" target="_blank" rel="noopener noreferrer" href="https://twitter.com/intent/tweet?text=' +
+        encodedShareText +
+        '">X</a>',
+      '    <button class="button button-primary share-button" type="button" data-copy-business-link="' +
+        escapeHtml(businessUrl) +
+        '">Copy Link</button>',
+      '  </div>',
+      '</section>',
+    ].join('');
+  }
+
+  async function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+      const copied = document.execCommand('copy');
+      if (!copied) {
+        throw new Error('Copy command failed.');
+      }
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
+
   /* ==========================================
      BUSINESS LISTING CARD RENDERING
   ========================================== */
@@ -618,6 +694,7 @@
         : '',
       '    <button class="button button-secondary" type="button" id="report-business-toggle">Report this business</button>',
       '  </div>',
+      createShareSection(business),
       '  <section class="profile-section trust-disclaimer"><p>Maro Services Hub verifies listings before approval. However, users are advised to confirm service details before booking them.</p></section>',
       createReportForm(),
       createBusinessComments(comments),
@@ -1476,6 +1553,7 @@
     profileNode.addEventListener('click', function (event) {
       const reportToggle = event.target.closest('#report-business-toggle');
       const lightboxTrigger = event.target.closest('.image-lightbox-trigger');
+      const copyLinkButton = event.target.closest('[data-copy-business-link]');
 
       if (reportToggle) {
         const reportSection = document.getElementById('report-business-section');
@@ -1490,6 +1568,24 @@
             }
           }
         }
+        return;
+      }
+
+      if (copyLinkButton) {
+        const feedbackNode = document.getElementById('share-feedback');
+        copyTextToClipboard(copyLinkButton.dataset.copyBusinessLink || window.location.href)
+          .then(function () {
+            if (feedbackNode) {
+              feedbackNode.classList.remove('error');
+              feedbackNode.textContent = 'Business link copied!';
+            }
+          })
+          .catch(function () {
+            if (feedbackNode) {
+              feedbackNode.classList.add('error');
+              feedbackNode.textContent = 'Copy failed. Please copy the browser URL.';
+            }
+          });
         return;
       }
 
