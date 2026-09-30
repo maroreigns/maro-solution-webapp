@@ -13,6 +13,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { Business } = require('../models/Business');
 const { Report } = require('../models/Report');
+const { Promotion } = require('../models/Promotion');
 const { asyncHandler } = require('../utils/asyncHandler');
 const { escapeHtml, sendEmail } = require('../utils/email');
 const { sanitizeString } = require('../utils/sanitize');
@@ -275,7 +276,24 @@ function buildFilters(query) {
  */
 const getBusinesses = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
-  const businesses = await Business.find(filters).sort({ createdAt: -1 });
+  const businesses = await Business.find(filters).sort({ createdAt: -1 }).lean();
+  const now = new Date();
+  await Promotion.updateMany({ status: 'active', endsAt: { $lte: now } }, { $set: { status: 'expired' } });
+  await Promotion.updateMany({ status: 'pending', paymentStatus: 'verified', startsAt: { $lte: now }, endsAt: { $gt: now } }, { $set: { status: 'active' } });
+  const activePromotions = await Promotion.find({
+    business: { $in: businesses.map((business) => business._id) },
+    paymentStatus: 'verified',
+    status: 'active',
+    startsAt: { $lte: now },
+    endsAt: { $gt: now },
+  }).sort({ startsAt: 1, createdAt: 1 }).lean();
+  const promoted = new Map(activePromotions.map((promotion) => [String(promotion.business), promotion]));
+  businesses.forEach((business) => {
+    const promotion = promoted.get(String(business._id));
+    business.isPromoted = Boolean(promotion);
+    if (promotion) business.promotionEndsAt = promotion.endsAt;
+  });
+  businesses.sort((a, b) => Number(b.isPromoted) - Number(a.isPromoted) || new Date(b.createdAt) - new Date(a.createdAt));
 
   res.json({
     success: true,

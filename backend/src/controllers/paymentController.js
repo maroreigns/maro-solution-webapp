@@ -152,6 +152,13 @@ async function verifyAndSavePayment(reference) {
     }
   );
 
+  if (paystackData.metadata && paystackData.metadata.purpose && paystackData.metadata.purpose !== 'business_listing') {
+    const error = new Error('Payment purpose mismatch.');
+    error.statusCode = 400;
+    error.publicMessage = 'This payment reference is not for a business listing.';
+    throw error;
+  }
+
   if (paystackData.status !== 'success') {
     const error = new Error('Paystack payment was not successful.');
     error.statusCode = 400;
@@ -255,6 +262,7 @@ const initializePayment = asyncHandler(async (req, res) => {
       reference: paymentReference,
       callback_url: buildCallbackUrl(paymentReference),
       metadata: {
+        purpose: 'business_listing',
         businessId: String(business._id),
         businessName: business.name,
       },

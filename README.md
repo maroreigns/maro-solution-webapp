@@ -339,3 +339,17 @@ You can deploy this project to platforms such as Render, Railway, Fly.io, or a V
 - `backend/src/data/nigeriaData.js` contains all Nigerian states plus FCT and the full LGA mapping.
 - `backend/src/data/categories.js` contains the business category list.
 - `frontend/scripts/data.js` exposes the same data to the browser for dropdown population.
+# Promotion configuration
+
+Business promotion plans are configured on the backend with `PROMOTION_PLANS_JSON`.
+When it is omitted, development defaults are used: 7 days / NGN 2,500, 14 days /
+NGN 4,500, and 30 days / NGN 8,000. Set production values explicitly, for example:
+
+```env
+PROMOTION_PLANS_JSON={"starter":{"durationDays":7,"amount":2500},"growth":{"durationDays":14,"amount":4500},"spotlight":{"durationDays":30,"amount":8000}}
+PROMOTION_CALLBACK_URL=https://marosolutionapp.com/dashboard.html
+```
+
+Promotion payments use the existing `PAYSTACK_SECRET_KEY`, but are isolated from
+listing payments by their `maro_promo_` reference prefix, dedicated Promotion
+records, and Paystack metadata with `purpose: business_promotion`.

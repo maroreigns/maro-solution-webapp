@@ -19,6 +19,7 @@
   const apiBaseUrl = getBusinessApiBaseUrl(apiRootUrl);
   const adminApiBaseUrl = getAdminApiBaseUrl(apiRootUrl);
   const paymentApiBaseUrl = getPaymentApiBaseUrl(apiRootUrl);
+  const promotionApiBaseUrl = apiRootUrl + '/promotions';
   const apiOrigin = getApiOrigin(apiBaseUrl);
   const assetBaseUrl = getAssetBaseUrl(apiRootUrl);
   const pagePaths = {
@@ -560,7 +561,8 @@
       : escapeHtml(fallbackLetter);
 
     return [
-      '<article class="provider-card">',
+      '<article class="provider-card' + (business.isPromoted ? ' is-promoted' : '') + '">',
+      business.isPromoted ? '  <span class="sponsored-label">Sponsored</span>' : '',
       '  <div class="provider-top">',
       '    <div class="provider-avatar" aria-hidden="' + (business.profileImage ? 'false' : 'true') + '">' + profileMarkup + '</div>',
       '    <div class="provider-heading">',
@@ -1257,6 +1259,35 @@
     return payload.data || null;
   }
 
+  async function promotionRequest(path, options) {
+    const response = await fetch(promotionApiBaseUrl + path, {
+      ...(options || {}),
+      headers: getOwnerAuthHeaders({ 'Content-Type': 'application/json', ...((options && options.headers) || {}) }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || 'Unable to process promotion request.');
+    return payload;
+  }
+
+  async function fetchPromotionPlans() {
+    const response = await fetch(promotionApiBaseUrl + '/plans');
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || 'Unable to load promotion plans.');
+    return payload.data || [];
+  }
+
+  async function fetchOwnerPromotions() {
+    return (await promotionRequest('/owner')).data || [];
+  }
+
+  async function startPromotion(plan) {
+    return promotionRequest('/initialize', { method: 'POST', body: JSON.stringify({ plan: plan }) });
+  }
+
+  async function verifyPromotionPayment(reference) {
+    return promotionRequest('/verify', { method: 'POST', body: JSON.stringify({ reference: reference }) });
+  }
+
   async function deleteBusiness(businessId) {
     const response = await fetch(apiBaseUrl + '/' + encodeURIComponent(businessId), {
       method: 'DELETE',
@@ -1295,6 +1326,20 @@
     }
 
     return payload.data || [];
+  }
+
+  async function fetchAdminPromotions() {
+    const response = await fetch(promotionApiBaseUrl + '/admin', { headers: getAdminAuthHeaders() });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || 'Unable to load promotions.');
+    return payload.data || [];
+  }
+
+  async function cancelAdminPromotion(promotionId) {
+    const response = await fetch(promotionApiBaseUrl + '/admin/' + encodeURIComponent(promotionId) + '/cancel', { method: 'PATCH', headers: getAdminAuthHeaders() });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || 'Unable to deactivate promotion.');
+    return payload;
   }
 
   async function resolveBusinessReport(reportId) {
@@ -1486,7 +1531,7 @@
         const formData = new FormData(heroSearchForm);
         const params = new URLSearchParams();
 
-        ['category', 'state', 'localGovernment'].forEach(function (field) {
+        ['keyword', 'category', 'state', 'localGovernment'].forEach(function (field) {
           const value = formData.get(field);
           if (value) {
             params.set(field, value);
@@ -1728,6 +1773,9 @@
     const adminPendingList = document.getElementById('admin-pending-list');
     const adminReportsMeta = document.getElementById('admin-reports-meta');
     const adminReportList = document.getElementById('admin-report-list');
+    const adminPromotionsRefresh = document.getElementById('admin-promotions-refresh');
+    const adminPromotionsMeta = document.getElementById('admin-promotions-meta');
+    const adminPromotionsList = document.getElementById('admin-promotions-list');
     const adminDashboardNodes = document.querySelectorAll('.admin-dashboard-only');
     const searchParams = new URLSearchParams(window.location.search);
     const paymentReference = searchParams.get('reference') || searchParams.get('trxref') || '';
@@ -1920,7 +1968,12 @@
           ' service provider' +
           (businesses.length === 1 ? '' : 's') +
           ' found.';
-        listingsGrid.innerHTML = businesses.map(createProviderCard).join('');
+        const sponsored = businesses.filter(function (business) { return business.isPromoted; });
+        const organic = businesses.filter(function (business) { return !business.isPromoted; });
+        listingsGrid.innerHTML =
+          (sponsored.length ? '<div class="listing-group-title"><span>Sponsored</span><small>Relevant paid placements</small></div>' + sponsored.map(createProviderCard).join('') : '') +
+          '<div class="listing-group-title"><span>All businesses</span><small>Organic results</small></div>' +
+          organic.map(createProviderCard).join('');
       } catch (error) {
         resultsMeta.textContent = error.message;
       }
@@ -2063,6 +2116,29 @@
       }
     }
 
+    async function loadPromotionQueue() {
+      if (!adminPromotionsMeta || !adminPromotionsList || !isAdminLoggedIn()) return;
+      adminPromotionsMeta.textContent = 'Loading promotions...';
+      try {
+        const promotions = await fetchAdminPromotions();
+        adminPromotionsMeta.textContent = promotions.length + ' promotion record' + (promotions.length === 1 ? '' : 's') + '.';
+        adminPromotionsList.innerHTML = promotions.length ? promotions.map(function (item) {
+          const business = item.business || {};
+          return '<article class="admin-report-card" data-promotion-id="' + escapeHtml(item._id) + '"><div><span class="status-badge status-' + escapeHtml(item.status) + '">' + escapeHtml(item.status) + '</span><h3>' + escapeHtml(business.name || 'Deleted business') + '</h3><p>' + escapeHtml(item.plan) + ' · ' + Number(item.durationDays) + ' days · ₦' + Number(item.amount).toLocaleString('en-NG') + '</p><small>' + escapeHtml(item.paymentReference) + '</small></div>' + (item.status === 'active' || item.status === 'pending' ? '<button class="button button-danger" type="button" data-cancel-promotion>Deactivate</button>' : '') + '</article>';
+        }).join('') : '<div class="status-message">No promotion records yet.</div>';
+      } catch (error) { adminPromotionsMeta.textContent = error.message; }
+    }
+
+    if (adminPromotionsRefresh) adminPromotionsRefresh.addEventListener('click', loadPromotionQueue);
+    if (adminPromotionsList) adminPromotionsList.addEventListener('click', async function (event) {
+      const button = event.target.closest('[data-cancel-promotion]');
+      if (!button) return;
+      const card = button.closest('[data-promotion-id]');
+      if (!card || !window.confirm('Deactivate this promotion? Payment history will be preserved.')) return;
+      button.disabled = true;
+      try { await cancelAdminPromotion(card.dataset.promotionId); await loadPromotionQueue(); } catch (error) { window.alert(error.message); button.disabled = false; }
+    });
+
     async function loadReportQueue() {
       if (!adminReportsMeta || !adminReportList || !isAdminLoggedIn()) {
         return;
@@ -2121,6 +2197,7 @@
         if (isAdminLoggedIn()) {
           loadPendingQueue();
           loadReportQueue();
+          loadPromotionQueue();
           return;
         }
 
@@ -2164,6 +2241,7 @@
           refreshAdminButton();
           await loadPendingQueue();
           await loadReportQueue();
+          await loadPromotionQueue();
           if (!isDirectAdminPage) {
             await runSearch();
           }
@@ -2379,6 +2457,7 @@
             refreshAdminButton();
             await loadPendingQueue();
             await loadReportQueue();
+            await loadPromotionQueue();
           } catch (error) {
             sessionStorage.removeItem(adminJwtStorageKey);
             currentAdmin = null;
@@ -2404,6 +2483,7 @@
           refreshAdminButton();
           await loadPendingQueue();
           await loadReportQueue();
+          await loadPromotionQueue();
           await runSearch();
         } catch (error) {
           sessionStorage.removeItem(adminJwtStorageKey);
@@ -2664,6 +2744,9 @@
     const serviceImagesInput = document.getElementById('dashboard-service-images');
     const profilePreview = document.getElementById('dashboard-profile-preview');
     const servicePreview = document.getElementById('dashboard-service-preview');
+    const promotionPlansNode = document.getElementById('promotion-plans');
+    const promotionHistoryNode = document.getElementById('promotion-history');
+    const promotionFeedback = document.getElementById('promotion-feedback');
     const searchParams = new URLSearchParams(window.location.search);
     const resetToken = searchParams.get('resetToken') || '';
     const resetEmail = searchParams.get('email') || '';
@@ -2766,6 +2849,52 @@
       summaryNode.innerHTML = createDashboardSummary(business);
       fillProfileForm(business);
       showDashboard();
+      loadPromotions(business);
+    }
+
+    function money(value) {
+      return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Number(value || 0));
+    }
+
+    function dateLabel(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    async function loadPromotions(business) {
+      if (!promotionPlansNode || !promotionHistoryNode) return;
+      try {
+        const callbackReference = searchParams.get('promotion') === 'success' ? searchParams.get('reference') : '';
+        if (callbackReference) {
+          setFeedback(promotionFeedback, 'Verifying your secure promotion payment...', false);
+          await verifyPromotionPayment(callbackReference);
+          window.history.replaceState({}, '', pagePaths.dashboard);
+          setFeedback(promotionFeedback, 'Promotion payment verified. Your sponsored placement is active.', false);
+        }
+        const results = await Promise.all([fetchPromotionPlans(), fetchOwnerPromotions()]);
+        const plans = results[0]; const history = results[1];
+        const eligible = business.status === 'approved' && business.paymentStatus === 'verified';
+        promotionPlansNode.innerHTML = plans.map(function (plan) {
+          return '<article class="promotion-plan"><strong>' + escapeHtml(plan.id.charAt(0).toUpperCase() + plan.id.slice(1)) + '</strong><span>' + plan.durationDays + ' days</span><b>' + money(plan.amount) + '</b><button class="button button-primary" type="button" data-promotion-plan="' + escapeHtml(plan.id) + '"' + (eligible ? '' : ' disabled') + '>Choose plan</button></article>';
+        }).join('');
+        promotionHistoryNode.innerHTML = '<h4>Promotion history</h4>' + (history.length ? '<div class="history-list">' + history.map(function (item) {
+          return '<div class="history-row"><div><strong>' + escapeHtml(item.plan) + '</strong><small>' + money(item.amount) + ' · ' + item.durationDays + ' days</small></div><span class="status-badge status-' + escapeHtml(item.status) + '">' + escapeHtml(item.status) + '</span><small>' + dateLabel(item.startsAt) + ' – ' + dateLabel(item.endsAt) + '</small></div>';
+        }).join('') + '</div>' : '<div class="status-message">Not currently promoted. Choose a plan when your listing is approved.</div>');
+        if (!eligible) setFeedback(promotionFeedback, 'Promotion becomes available after listing payment and admin approval.', true);
+      } catch (error) { setFeedback(promotionFeedback, error.message, true); }
+    }
+
+    if (promotionPlansNode) {
+      promotionPlansNode.addEventListener('click', async function (event) {
+        const button = event.target.closest('[data-promotion-plan]');
+        if (!button) return;
+        button.disabled = true; button.textContent = 'Preparing payment...';
+        try {
+          const payload = await startPromotion(button.dataset.promotionPlan);
+          if (!payload.authorization_url) throw new Error('Payment link was not returned.');
+          window.location.href = payload.authorization_url;
+        } catch (error) { setFeedback(promotionFeedback, error.message, true); button.disabled = false; button.textContent = 'Choose plan'; }
+      });
     }
 
     async function loadOwnerDashboard() {
