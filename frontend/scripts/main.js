@@ -41,14 +41,80 @@
   ========================================== */
 
   function initializeSharedUi() {
+    rebuildPublicHeader();
+    rebuildFooter();
     setupTheme();
     setupMobileNav();
     highlightCurrentPage();
+    enhanceStructuralLayouts();
 
     const yearNode = document.getElementById('current-year');
     if (yearNode) {
       yearNode.textContent = new Date().getFullYear();
     }
+  }
+
+  function rebuildFooter() {
+    const footer=document.querySelector('.site-footer'); if(!footer) return;
+    footer.className='market-footer'; footer.innerHTML='<div class="container footer-columns"><div class="footer-brand"><a class="market-brand" href="./index.html"><img src="./assets/msh-logo.svg" alt=""><span>Maro <b>Services Hub</b></span></a><p>Helping people find trusted local professionals across Nigeria.</p></div><div><h3>Explore</h3><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a></div><div><h3>For businesses</h3><a href="./add-business.html">Add Business</a><a href="./dashboard.html">My Dashboard</a><a href="./dashboard.html#promotion-panel">Promote Business</a></div><div><h3>Company</h3><a href="./about.html">About</a></div></div><div class="container footer-bottom">© <span id="current-year"></span> Maro Services Hub. All rights reserved.</div>';
+  }
+
+  function rebuildPublicHeader() {
+    if (page === 'home' || page === 'dashboard' || page === 'admin') return;
+    const header=document.querySelector('.site-header'); if(!header) return;
+    header.className='market-header';
+    header.innerHTML='<div class="container market-nav"><a class="market-brand" href="./index.html"><img src="./assets/msh-logo.svg" alt=""><span>Maro <b>Services Hub</b></span></a><nav class="desktop-nav"><a href="./listings.html">Explore</a><a href="./index.html#categories">Categories</a><a href="./add-business.html">Add Business</a></nav><div class="nav-account"><a href="./dashboard.html">Log in</a><a class="button button-primary button-small" href="./add-business.html">Sign up</a></div><button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span><span></span></button><nav class="site-nav mobile-drawer" id="site-nav"><a href="./index.html">Home</a><a href="./listings.html">Explore services</a><a href="./index.html#categories">Categories</a><a href="./add-business.html">Add Business</a><a href="./dashboard.html">My Dashboard</a><button class="theme-toggle" type="button" aria-label="Toggle dark mode"><span>◐</span></button></nav></div>';
+  }
+
+  function categoryIcon() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6m10-6v6M5 13h6v6H5zm10 0h4v6h-4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  }
+
+  function enhanceStructuralLayouts() {
+    if (page === 'add-business') setupBusinessWizard();
+    if (page === 'dashboard') setupDashboardShell();
+    if (page === 'admin') setupAdminShell();
+  }
+
+  function setupBusinessWizard() {
+    const form = document.getElementById('business-form');
+    if (!form || form.dataset.wizardReady) return;
+    form.dataset.wizardReady = 'true';
+    const fieldNames = [['name','category','serviceDescription','yearsExperience'],['state','localGovernment','address','latitude','longitude'],['phone','email','password','confirmPassword'],['profileImage','serviceImages']];
+    const titles = ['Tell us about your business','Where is your business?','How can customers reach you?','Show customers your work','Review your listing'];
+    const groups = fieldNames.map(function (names, index) {
+      const panel = document.createElement('section'); panel.className = 'wizard-step'; panel.dataset.wizardStep = String(index); panel.innerHTML = '<span class="overline">Step ' + (index + 1) + ' of 5</span><h2>' + titles[index] + '</h2>';
+      names.forEach(function (name) { const input = form.elements[name]; if (!input) return; const wrapper = (name==='latitude'||name==='longitude') ? input.closest('fieldset') : (input.closest('label') || input.closest('fieldset')); if (wrapper && !panel.contains(wrapper)) panel.appendChild(wrapper); });
+      return panel;
+    });
+    const reviewPanel=document.createElement('section'); reviewPanel.className='wizard-step'; reviewPanel.dataset.wizardStep='4'; reviewPanel.innerHTML='<span class="overline">Step 5 of 5</span><h2>Review your listing</h2><p>Confirm the details below, then submit your business and continue to the existing listing payment.</p><dl class="wizard-review" id="wizard-review"></dl>'; groups.push(reviewPanel);
+    ['image-preview','service-images-preview'].forEach(function(id){const preview=document.getElementById(id); if(preview) groups[3].appendChild(preview);});
+    const feedback = document.getElementById('form-feedback');
+    const loader = document.getElementById('submission-loading');
+    groups.forEach(function (panel) { form.insertBefore(panel, document.getElementById('submit-button')); });
+    if (feedback) form.prepend(feedback); if (loader) form.insertBefore(loader, groups[0]);
+    const submit = document.getElementById('submit-button');
+    const controls = document.createElement('div'); controls.className = 'wizard-controls'; controls.innerHTML = '<button class="button button-secondary" type="button" data-wizard-back>Back</button><button class="button button-primary" type="button" data-wizard-next>Continue</button>';
+    form.insertBefore(controls, submit); submit.textContent = 'Submit business & continue to payment';
+    const shell = document.querySelector('.form-layout'); if (shell) { shell.classList.add('onboarding-shell'); const intro = shell.querySelector('.form-intro'); if (intro) intro.innerHTML = '<span class="overline">Business onboarding</span><h1>Add your business</h1><p>Build a trusted profile customers can discover.</p><ol class="wizard-nav">' + titles.map(function(t,i){return '<li data-wizard-nav="'+i+'"><span>'+(i+1)+'</span>'+t+'</li>';}).join('') + '</ol>'; }
+    let active = 0;
+    function show(index) { active = Math.max(0, Math.min(groups.length - 1, index)); groups.forEach(function(p,i){p.hidden=i!==active;}); controls.querySelector('[data-wizard-back]').hidden=active===0; controls.querySelector('[data-wizard-next]').hidden=active===groups.length-1; submit.hidden=active!==groups.length-1; document.querySelectorAll('[data-wizard-nav]').forEach(function(n,i){n.classList.toggle('is-active',i===active);n.classList.toggle('is-complete',i<active);}); if(active===groups.length-1){const review=document.getElementById('wizard-review'); const data=new FormData(form); review.innerHTML=['name','category','state','localGovernment','phone','email'].map(function(key){return '<div><dt>'+escapeHtml(key==='localGovernment'?'Local government':key.charAt(0).toUpperCase()+key.slice(1))+'</dt><dd>'+escapeHtml(String(data.get(key)||'Not provided'))+'</dd></div>';}).join('');} }
+    controls.addEventListener('click', function(e){ if(e.target.closest('[data-wizard-back]')) show(active-1); if(e.target.closest('[data-wizard-next]')) { const invalid=Array.from(groups[active].querySelectorAll('input,select,textarea')).find(function(el){return !el.checkValidity();}); if(invalid){invalid.reportValidity();return;} show(active+1); } }); show(0);
+  }
+
+  function setupDashboardShell() {
+    const layout = document.querySelector('.dashboard-layout'); if (!layout || layout.querySelector('.dashboard-app-nav')) return;
+    const nav = document.createElement('aside'); nav.className='dashboard-app-nav'; nav.innerHTML='<a class="market-brand" href="./index.html"><img src="./assets/msh-logo.svg" alt=""><span>Maro <b>Hub</b></span></a><nav><a href="#owner-dashboard-summary">Overview</a><a href="#owner-profile-form">Edit business</a><a href="#owner-photos-form">Photos</a><a href="#promotion-panel">Promote business</a><a href="#promotion-history">Promotion history</a></nav><a class="dashboard-back-link" href="./index.html">← Back to marketplace</a>';
+    layout.prepend(nav); layout.classList.add('dashboard-app-shell');
+    const authPanel = document.getElementById('owner-auth-panel');
+    if (authPanel) { const authShell=document.createElement('div'); authShell.className='auth-experience'; authShell.innerHTML='<div class="auth-visual"><span class="overline">Maro for business</span><h2>Your local customers are already looking.</h2><p>Manage your listing, show your work and grow your visibility from one place.</p></div>'; authPanel.parentNode.insertBefore(authShell,authPanel); authShell.appendChild(authPanel); }
+  }
+
+  function setupAdminShell() {
+    const container = document.querySelector('body[data-page="admin"] main .container'); if (!container || container.querySelector('.admin-app-nav')) return;
+    const nav=document.createElement('aside'); nav.className='admin-app-nav'; nav.innerHTML='<div class="admin-brand">MSH <span>Admin</span></div><nav><a href="#admin-panel">Overview</a><a href="#admin-pending-list">Pending approvals</a><a href="#admin-promotions-list">Promotions</a><a href="#admin-report-list">Reports</a></nav><a href="./index.html">← View marketplace</a>';
+    container.prepend(nav); container.classList.add('admin-app-shell');
+    const metrics=document.createElement('section'); metrics.className='admin-metric-grid admin-dashboard-only'; metrics.innerHTML='<article><span>Pending approvals</span><strong id="metric-pending">—</strong></article><article><span>Active promotions</span><strong id="metric-promotions">—</strong></article><article><span>Open reports</span><strong id="metric-reports">—</strong></article>'; const panel=document.getElementById('admin-panel'); if(panel) container.insertBefore(metrics,panel);
   }
 
   function setupTheme() {
@@ -550,51 +616,19 @@
   function createProviderCard(business) {
     const businessId = getBusinessId(business);
     const fallbackLetter = firstLetterFromName(business.name);
-    const profileMarkup = business.profileImage
-      ? '<img src="' +
-        resolveAssetUrl(business.profileImage) +
-        '" alt="' +
-        escapeHtml(business.name) +
-        ' profile picture" data-avatar-fallback="' +
-        escapeHtml(fallbackLetter) +
-        '" />'
-      : escapeHtml(fallbackLetter);
+    const availableImages = (Array.isArray(business.serviceImages) ? business.serviceImages : []).filter(Boolean);
+    const coverImage = availableImages[0] || business.profileImage || '';
+    const profileMarkup = coverImage ? '<img loading="lazy" src="' + resolveAssetUrl(coverImage) + '" alt="' + escapeHtml(business.name + ' work') + '" data-avatar-fallback="' + escapeHtml(fallbackLetter) + '" />' : '<span class="card-image-fallback">' + escapeHtml(fallbackLetter) + '</span>';
+    const description = String(business.serviceDescription || '').trim();
 
     return [
       '<article class="provider-card' + (business.isPromoted ? ' is-promoted' : '') + '">',
-      business.isPromoted ? '  <span class="sponsored-label">Sponsored</span>' : '',
-      '  <div class="provider-top">',
-      '    <div class="provider-avatar" aria-hidden="' + (business.profileImage ? 'false' : 'true') + '">' + profileMarkup + '</div>',
-      '    <div class="provider-heading">',
-      '      <h3>' + escapeHtml(business.name) + '</h3>',
-      '      <div class="provider-tags">',
-      '        <span class="tag">' + escapeHtml(business.category) + '</span>',
-      '        <span class="tag">' + escapeHtml(business.state) + '</span>',
-      '        ' + createVerifiedBadge(business),
-      '        ' + createLocationAvailableTag(business),
-      '      </div>',
-      '    </div>',
-      '  </div>',
-      '  <div class="provider-meta">',
-      '    <span><strong>Local Government:</strong> ' + escapeHtml(business.localGovernment) + '</span>',
-      '    <span><strong>Phone:</strong> ' + escapeHtml(business.phone) + '</span>',
-      '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
-      '    <span><strong>Experience:</strong> ' + escapeHtml(String(business.yearsExperience)) + ' years</span>',
-      '  </div>',
-      '  ' + createRatingControls(business),
-      '  <div class="provider-actions">',
-      '    <a class="button button-whatsapp" target="_blank" rel="noreferrer" href="https://wa.me/' +
-        normalizeWhatsapp(business.phone) +
-        '?text=' +
-        encodeURIComponent(whatsappMessage) +
-        '">WhatsApp</a>',
-      '    <a class="button button-secondary" href="' +
-        pagePaths.business +
-        '?id=' +
-        encodeURIComponent(businessId) +
-        '">View Profile</a>',
-      '    ' + createAdminDeleteButton(business),
-      '  </div>',
+      '  <a class="provider-cover" href="' + pagePaths.business + '?id=' + encodeURIComponent(businessId) + '">' + profileMarkup + (business.isPromoted ? '<span class="sponsored-label">Sponsored</span>' : '') + '</a>',
+      '  <div class="provider-card-body"><span class="card-category">' + escapeHtml(business.category) + '</span>',
+      '  <div class="card-title-row"><h3>' + escapeHtml(business.name) + '</h3>' + createVerifiedBadge(business) + '</div>',
+      '  <div class="card-facts"><span>' + formatRatingSummary(business.ratingAverage, business.ratingCount) + '</span><span>•</span><span>' + escapeHtml(business.localGovernment + ', ' + business.state) + '</span></div>',
+      description ? '<p class="card-description">' + escapeHtml(description.length > 105 ? description.slice(0, 102) + '…' : description) + '</p>' : '',
+      '  <div class="card-link-row"><a href="' + pagePaths.business + '?id=' + encodeURIComponent(businessId) + '">View profile <span>→</span></a>' + createAdminDeleteButton(business) + '</div></div>',
       '</article>',
     ].join('');
   }
@@ -615,92 +649,27 @@
         '" />'
       : escapeHtml(fallbackLetter);
 
+    const gallery = serviceImages.length ? serviceImages.map(function (imageUrl, index) { const url = resolveAssetUrl(imageUrl); return '<button class="profile-gallery-item image-lightbox-trigger" type="button" data-lightbox-src="' + escapeHtml(url) + '" data-lightbox-alt="' + escapeHtml(business.name + ' work photo ' + (index + 1)) + '"><img loading="lazy" src="' + escapeHtml(url) + '" alt="' + escapeHtml(business.name + ' work photo ' + (index + 1)) + '" /></button>'; }).join('') : '<div class="profile-gallery-empty">Work photos have not been added yet.</div>';
     return [
-      '<article class="provider-card">',
-      '  <div class="provider-top">',
-      business.profileImage
-        ? '    <button class="provider-avatar profile-avatar-button image-lightbox-trigger" type="button" data-lightbox-src="' +
-          escapeHtml(profileImageUrl) +
-          '" data-lightbox-alt="' +
-          escapeHtml(business.name + ' profile picture') +
-          '" aria-label="View larger profile picture">' +
-          profileMarkup +
-          '</button>'
-        : '    <div class="provider-avatar" aria-hidden="true">' + profileMarkup + '</div>',
-      '    <div class="provider-heading">',
-      '      <h3>' + escapeHtml(business.name) + '</h3>',
-      '      <div class="provider-tags">',
-      '        <span class="tag">' + escapeHtml(business.category) + '</span>',
-      '        <span class="tag">' + escapeHtml(business.state) + '</span>',
-      '        ' + createVerifiedBadge(business),
-      '        ' + createLocationAvailableTag(business),
-      '      </div>',
-      '    </div>',
-      '  </div>',
-      '  <div class="provider-meta">',
-      '    <span><strong>Local Government:</strong> ' + escapeHtml(business.localGovernment) + '</span>',
-      '    <span><strong>Phone:</strong> ' + escapeHtml(business.phone) + '</span>',
-      '    <span><strong>Address:</strong> ' + escapeHtml(business.address) + '</span>',
-      '    <span><strong>Experience:</strong> ' + escapeHtml(String(business.yearsExperience)) + ' years</span>',
-      '  </div>',
+      '<article class="market-profile">',
+      '<div class="profile-gallery">' + gallery + '</div>',
+      '<header class="profile-identity">',
+      business.profileImage ? '<button class="profile-logo image-lightbox-trigger" type="button" data-lightbox-src="' + escapeHtml(profileImageUrl) + '" data-lightbox-alt="' + escapeHtml(business.name + ' profile picture') + '">' + profileMarkup + '</button>' : '<div class="profile-logo profile-logo-fallback">' + escapeHtml(fallbackLetter) + '</div>',
+      '<div class="profile-heading"><span class="card-category">' + escapeHtml(business.category) + '</span><h2>' + escapeHtml(business.name) + ' ' + createVerifiedBadge(business) + '</h2><p>' + escapeHtml(business.localGovernment + ', ' + business.state) + ' · ' + formatRatingSummary(business.ratingAverage, business.ratingCount) + '</p></div>',
+      '<div class="profile-primary-actions"><a class="button button-whatsapp" target="_blank" rel="noreferrer" href="https://wa.me/' + normalizeWhatsapp(business.phone) + '?text=' + encodeURIComponent(whatsappMessage) + '">WhatsApp</a><a class="button button-secondary" href="tel:+' + normalizeWhatsapp(business.phone) + '">Call</a></div>',
+      '</header><div class="profile-content-grid"><main class="profile-story">',
       business.serviceDescription
-        ? '  <section class="profile-section"><h4>How I serve customers</h4><p>' +
+        ? '  <section class="profile-section"><span class="overline">About</span><h3>About this business</h3><p>' +
           escapeHtml(business.serviceDescription) +
           '</p></section>'
-        : '',
-      serviceImages.length
-        ? '  <section class="profile-section"><h4>Service photos</h4><div class="service-gallery">' +
-          serviceImages
-            .map(function (imageUrl, index) {
-              const serviceImageUrl = resolveAssetUrl(imageUrl);
-              const serviceImageAlt =
-                business.name + ' service photo ' + (index + 1);
-
-              return (
-                '<button class="service-gallery-button image-lightbox-trigger" type="button" data-lightbox-src="' +
-                escapeHtml(serviceImageUrl) +
-                '" data-lightbox-alt="' +
-                escapeHtml(serviceImageAlt) +
-                '" aria-label="View larger service photo ' +
-                (index + 1) +
-                '">' +
-                '<img src="' +
-                serviceImageUrl +
-                '" alt="' +
-                escapeHtml(serviceImageAlt) +
-                '" />' +
-                '</button>'
-              );
-            })
-            .join('') +
-          '</div></section>'
-        : '',
-      '  <div class="rating">',
-      '    <div class="rating-summary">' +
-        formatRatingSummary(business.ratingAverage, business.ratingCount) +
-        '</div>',
-      '  </div>',
-      '  <div class="provider-actions">',
-      '    <a class="button button-whatsapp" target="_blank" rel="noreferrer" href="https://wa.me/' +
-        normalizeWhatsapp(business.phone) +
-        '?text=' +
-        encodeURIComponent(whatsappMessage) +
-        '">WhatsApp</a>',
-      '    <a class="button button-secondary" href="tel:+' +
-        normalizeWhatsapp(business.phone) +
-        '">Call</a>',
-      googleMapsUrl
-        ? '    <a class="button button-primary location-button" target="_blank" rel="noopener noreferrer" href="' +
-          escapeHtml(googleMapsUrl) +
-          '">&#128205; Get Directions</a>'
-        : '',
-      '    <button class="button button-secondary" type="button" id="report-business-toggle">Report this business</button>',
-      '  </div>',
+        : '<section class="profile-section empty-profile-section"><h3>About this business</h3><p>No description has been added yet.</p></section>',
+      '<section class="profile-section"><span class="overline">Customer feedback</span><h3>Reviews</h3>' + createRatingControls(business) + createBusinessComments(comments) + '</section>',
+      '</main><aside class="profile-contact-card"><span class="overline">Contact provider</span><h3>Ready to discuss the job?</h3><a class="button button-whatsapp" target="_blank" rel="noreferrer" href="https://wa.me/' + normalizeWhatsapp(business.phone) + '?text=' + encodeURIComponent(whatsappMessage) + '">Message on WhatsApp</a><a class="button button-secondary" href="tel:+' + normalizeWhatsapp(business.phone) + '">Call ' + escapeHtml(business.phone) + '</a>',
+      googleMapsUrl ? '<a class="button button-secondary location-button" target="_blank" rel="noopener noreferrer" href="' + escapeHtml(googleMapsUrl) + '">Get directions</a>' : '',
+      '<dl><div><dt>Location</dt><dd>' + escapeHtml(business.address) + '</dd></div><div><dt>Experience</dt><dd>' + escapeHtml(String(business.yearsExperience)) + ' years</dd></div></dl><button class="report-link" type="button" id="report-business-toggle">Report this business</button>',
       createShareSection(business),
-      '  <section class="profile-section trust-disclaimer"><p>Maro Services Hub verifies listings before approval. However, users are advised to confirm service details before booking them.</p></section>',
       createReportForm(),
-      createBusinessComments(comments),
-      '</article>',
+      '</aside></div><div class="mobile-contact-bar"><a class="button button-whatsapp" target="_blank" rel="noreferrer" href="https://wa.me/' + normalizeWhatsapp(business.phone) + '?text=' + encodeURIComponent(whatsappMessage) + '">WhatsApp</a><a class="button button-secondary" href="tel:+' + normalizeWhatsapp(business.phone) + '">Call</a></div></article>',
     ].join('');
   }
 
@@ -1517,9 +1486,9 @@
     const featuredCategoriesNode = document.getElementById('featured-categories');
     appData.businessCategories.slice(0, 12).forEach(function (category) {
       const link = document.createElement('a');
-      link.className = 'chip';
+      link.className = 'category-market-card';
       link.href = pagePaths.listings + '?category=' + encodeURIComponent(category);
-      link.textContent = category;
+      link.innerHTML = '<span class="category-icon">' + categoryIcon() + '</span><strong>' + escapeHtml(category) + '</strong><span class="category-arrow">→</span>';
       featuredCategoriesNode.appendChild(link);
     });
 
@@ -1543,6 +1512,12 @@
     }
 
     loadFeaturedBusinesses();
+
+    const locationState = document.getElementById('location-state');
+    const locationLga = document.getElementById('location-lga');
+    const locationForm = document.getElementById('location-discovery-form');
+    wireStateAndLgaSelects(locationState, locationLga, 'Select local government');
+    if (locationForm) locationForm.addEventListener('submit', function(event){ event.preventDefault(); const params=new URLSearchParams(); if(locationState.value) params.set('state',locationState.value); if(locationLga.value) params.set('localGovernment',locationLga.value); window.location.href=pagePaths.listings+(params.toString()?'?'+params:''); });
   }
 
   async function loadFeaturedBusinesses() {
@@ -1559,7 +1534,8 @@
         return;
       }
 
-      listNode.innerHTML = businesses.slice(0, 4).map(createProviderCard).join('');
+      const promoted = businesses.filter(function (business) { return business.isPromoted; });
+      listNode.innerHTML = promoted.length ? promoted.slice(0, 6).map(createProviderCard).join('') : '<div class="market-empty-state"><strong>No sponsored businesses right now</strong><span>Explore all service providers in the marketplace.</span><a href="./listings.html">Browse services →</a></div>';
     } catch (error) {
       loadingNode.textContent = error.message;
     }
@@ -1765,6 +1741,9 @@
     const resultsMeta = document.getElementById('results-meta');
     const listingsGrid = document.getElementById('listings-grid');
     const resetButton = document.getElementById('reset-filters');
+    const filterDrawer = document.getElementById('filter-drawer');
+    const openFilters = document.getElementById('open-filters');
+    const closeFilters = document.getElementById('close-filters');
     const adminToggle = document.getElementById('admin-toggle');
     const adminPanel = document.getElementById('admin-panel');
     const adminRefresh = document.getElementById('admin-refresh');
@@ -2094,6 +2073,7 @@
 
       try {
         const businesses = await fetchPendingBusinesses();
+        const metricPending=document.getElementById('metric-pending'); if(metricPending) metricPending.textContent=String(businesses.length);
 
         if (!businesses.length) {
           adminPendingMeta.textContent = 'No pending businesses waiting for review.';
@@ -2121,6 +2101,7 @@
       adminPromotionsMeta.textContent = 'Loading promotions...';
       try {
         const promotions = await fetchAdminPromotions();
+        const metricPromotions=document.getElementById('metric-promotions'); if(metricPromotions) metricPromotions.textContent=String(promotions.filter(function(item){return item.status==='active';}).length);
         adminPromotionsMeta.textContent = promotions.length + ' promotion record' + (promotions.length === 1 ? '' : 's') + '.';
         adminPromotionsList.innerHTML = promotions.length ? promotions.map(function (item) {
           const business = item.business || {};
@@ -2152,6 +2133,7 @@
 
       try {
         const reports = await fetchBusinessReports();
+        const metricReports=document.getElementById('metric-reports'); if(metricReports) metricReports.textContent=String(reports.filter(function(item){return item.status==='pending';}).length);
 
         if (!reports.length) {
           adminReportsMeta.textContent = 'No business reports yet.';
@@ -2184,6 +2166,10 @@
       stateSelect.dispatchEvent(new Event('change'));
       runSearch();
     });
+    function setFilterDrawer(open) { if (!filterDrawer) return; filterDrawer.classList.toggle('is-open', open); document.body.classList.toggle('has-filter-drawer', open); }
+    if (openFilters) openFilters.addEventListener('click', function(){ setFilterDrawer(true); });
+    if (closeFilters) closeFilters.addEventListener('click', function(){ setFilterDrawer(false); });
+    document.querySelectorAll('[data-clear-filters]').forEach(function(button){ button.addEventListener('click', function(){ resetButton.click(); }); });
 
     if (adminToggle) {
       adminToggle.addEventListener('click', function () {

@@ -51,23 +51,24 @@
       </div>
     </header>
 
-    <main class="page-main">
+    <main class="explore-page page-main">
       <!-- Search Filters and Listing Results -->
-      <section class="section">
+      <section class="explore-hero">
         <div class="container">
           <div class="section-heading">
             <div>
-              <span class="eyebrow">Search listings</span>
-              <h1>Find the right provider for the job</h1>
+              <span class="eyebrow">Explore services</span>
+              <h1>Whatever you need, find the professional for it.</h1>
+              <p>Search real businesses by service and location across Nigeria.</p>
             </div>
           </div>
 
-          <form class="filters card" id="listings-filter-form">
-            <label>
+          <form class="explore-search" id="listings-filter-form">
+            <label class="explore-keyword">
               Keyword or name
               <input type="text" name="keyword" id="filter-keyword" placeholder="Search for a business or service" />
             </label>
-            <label>
+            <div class="filter-drawer" id="filter-drawer"><div class="filter-drawer-head"><strong>Filter results</strong><button type="button" id="close-filters" aria-label="Close filters">×</button></div><label>
               Category
               <select name="category" id="filter-category">
                 <option value="">All categories</option>
@@ -88,11 +89,10 @@
             <div class="filter-actions">
               <button class="button button-primary" type="submit">Search</button>
               <button class="button button-secondary" type="button" id="reset-filters">Reset</button>
-            </div>
+            </div></div>
           </form>
-
-          <div class="results-meta" id="results-meta">Loading listings...</div>
-          <div class="provider-grid" id="listings-grid"></div>
+          <div class="mobile-filter-bar"><button class="button button-secondary" id="open-filters" type="button">Filters</button><span id="mobile-results-label">Browse providers</span></div>
+          <div class="explore-results-layout"><aside class="filter-summary"><span class="overline">Refine</span><h2>Find your match</h2><p>Use service and location filters to narrow your results.</p><button class="text-link" type="button" data-clear-filters>Clear all filters</button></aside><section class="results-column"><div class="results-meta" id="results-meta">Loading listings...</div><div class="provider-grid" id="listings-grid"></div></section></div>
         </div>
       </section>
     </main>
