@@ -276,7 +276,10 @@ function buildFilters(query) {
  */
 const getBusinesses = asyncHandler(async (req, res) => {
   const filters = buildFilters(req.query);
-  const businesses = await Business.find(filters).sort({ createdAt: -1 }).lean();
+  const businesses = await Business.find(filters)
+    .select('name category state localGovernment profileImage status phoneVerified ratingAverage ratingCount createdAt')
+    .sort({ createdAt: -1 })
+    .lean();
   const now = new Date();
   await Promotion.updateMany({ status: 'active', endsAt: { $lte: now } }, { $set: { status: 'expired' } });
   await Promotion.updateMany({ approvalStatus: 'approved', status: 'pending', paymentStatus: 'verified', startsAt: { $lte: now }, endsAt: { $gt: now } }, { $set: { status: 'active' } });

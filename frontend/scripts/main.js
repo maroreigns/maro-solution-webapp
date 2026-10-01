@@ -594,7 +594,7 @@
     );
   }
 
-  function createProviderCard(business) {
+  function createLegacyProviderCard(business) {
     const businessId = getBusinessId(business);
     const fallbackLetter = firstLetterFromName(business.name);
     const availableImages = (Array.isArray(business.serviceImages) ? business.serviceImages : []).filter(Boolean);
@@ -610,6 +610,30 @@
       '  <div class="card-facts"><span>' + formatRatingSummary(business.ratingAverage, business.ratingCount) + '</span><span>•</span><span>' + escapeHtml(business.localGovernment + ', ' + business.state) + '</span></div>',
       description ? '<p class="card-description">' + escapeHtml(description.length > 105 ? description.slice(0, 102) + '…' : description) + '</p>' : '',
       '  <div class="card-link-row"><a href="' + pagePaths.business + '?id=' + encodeURIComponent(businessId) + '">View profile <span>→</span></a>' + createAdminDeleteButton(business) + '</div></div>',
+      '</article>',
+    ].join('');
+  }
+
+  function createProviderCard(business) {
+    const businessId = getBusinessId(business);
+    const initials = String(business.name || 'VOMA').trim().split(/\s+/).slice(0, 2).map(function (part) {
+      return part.charAt(0).toUpperCase();
+    }).join('') || 'V';
+    const profileImage = String(business.profileImage || '').trim();
+    const profileUrl = pagePaths.business + '?id=' + encodeURIComponent(businessId);
+    const profileMarkup = profileImage
+      ? '<img loading="lazy" src="' + escapeHtml(resolveAssetUrl(profileImage)) + '" alt="' + escapeHtml(business.name + ' profile') + '" data-avatar-fallback="' + escapeHtml(initials) + '" />'
+      : '<span class="card-image-fallback" aria-hidden="true">' + escapeHtml(initials) + '</span>';
+
+    return [
+      '<article class="provider-card directory-card' + (business.isPromoted ? ' is-promoted' : '') + '">',
+      business.isPromoted ? '<span class="sponsored-label">Sponsored</span>' : '',
+      '<a class="provider-avatar directory-avatar" href="' + profileUrl + '" aria-label="View ' + escapeHtml(business.name) + ' profile">' + profileMarkup + '</a>',
+      '<div class="provider-card-body"><span class="card-category">' + escapeHtml(business.category) + '</span>',
+      '<h3 class="directory-name"><a href="' + profileUrl + '">' + escapeHtml(business.name) + '</a></h3>',
+      '<dl class="directory-location"><div><dt>State</dt><dd>' + escapeHtml(business.state) + '</dd></div><div><dt>LGA</dt><dd>' + escapeHtml(business.localGovernment) + '</dd></div></dl>',
+      '<div class="directory-verification">' + createVerifiedBadge(business) + '</div>',
+      '<div class="card-link-row"><a class="view-profile-link" href="' + profileUrl + '">View Profile <span aria-hidden="true">&rarr;</span></a>' + createAdminDeleteButton(business) + '</div></div>',
       '</article>',
     ].join('');
   }
@@ -879,7 +903,7 @@
           return;
         }
 
-        avatar.textContent = image.dataset.avatarFallback || 'M';
+        avatar.textContent = image.dataset.avatarFallback || 'V';
         avatar.setAttribute('aria-hidden', 'true');
       },
       true
@@ -1524,7 +1548,7 @@
       const phoneEmpty = document.getElementById('phone-empty-preview');
       if (phoneBusiness && businesses.length) {
         const preview = businesses[0];
-        const image = ((preview.serviceImages || []).filter(Boolean)[0] || preview.profileImage || '');
+        const image = String(preview.profileImage || '').trim();
         phoneBusiness.innerHTML = (image ? '<img loading="lazy" src="' + escapeHtml(resolveAssetUrl(image)) + '" alt="" />' : '<span class="phone-business-image"></span>') + '<div class="phone-business-copy"><strong>' + escapeHtml(preview.name) + '</strong><span>' + escapeHtml(preview.category) + '</span><span>' + escapeHtml(preview.localGovernment + ', ' + preview.state) + '</span></div>';
         phoneBusiness.hidden = false; if (phoneEmpty) phoneEmpty.hidden = true;
       }
