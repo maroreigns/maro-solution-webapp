@@ -1,6 +1,6 @@
-# Maro Solution
+# VOMA
 
-Maro Solution is a full-stack service-listing website for Nigeria. Service providers can add their business, and visitors can search by category, state, local government, and keyword, then contact providers directly on WhatsApp.
+VOMA is a full-stack service marketplace for Nigeria. Service providers can add their business, and visitors can search by category, state, local government, and keyword, then contact providers directly on WhatsApp.
 
 ## Features
 

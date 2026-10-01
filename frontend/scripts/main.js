@@ -31,7 +31,7 @@
     admin: './admin.html',
   };
   const whatsappMessage =
-    'Hello, I need your service. I am messaging you from Maro Services Hub website.';
+    'Hello, I need your service. I am messaging you from the VOMA website.';
   const adminJwtStorageKey = 'admin_jwt';
   const ownerJwtStorageKey = 'owner_jwt';
   const ownerListingStorageKey = 'maro-owner-listing-status';
@@ -56,14 +56,14 @@
 
   function rebuildFooter() {
     const footer=document.querySelector('.site-footer'); if(!footer) return;
-    footer.className='market-footer'; footer.innerHTML='<div class="container footer-columns"><div class="footer-brand"><a class="market-brand" href="./index.html"><img src="./assets/msh-logo.svg" alt=""><span>Maro <b>Services Hub</b></span></a><p>Helping people find trusted local professionals across Nigeria.</p></div><div><h3>Explore</h3><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a></div><div><h3>For businesses</h3><a href="./add-business.html">Add Business</a><a href="./dashboard.html">My Dashboard</a><a href="./dashboard.html#promotion-panel">Promote Business</a></div><div><h3>Company</h3><a href="./about.html">About</a></div></div><div class="container footer-bottom">© <span id="current-year"></span> Maro Services Hub. All rights reserved.</div>';
+    footer.className='market-footer'; footer.innerHTML='<div class="container footer-columns"><div class="footer-brand"><a class="market-brand" href="./index.html" aria-label="VOMA home"><img src="./assets/voma-logo.png" alt="VOMA logo"></a><p>Helping people find trusted local professionals across Nigeria.</p></div><div><h3>Explore</h3><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a></div><div><h3>For businesses</h3><a href="./add-business.html">Add Business</a><a href="./dashboard.html">My Dashboard</a><a href="./dashboard.html#promotion-panel">Promote Business</a></div><div><h3>Company</h3><a href="./about.html">About</a></div></div><div class="container footer-bottom">© <span id="current-year"></span> VOMA. All rights reserved.</div>';
   }
 
   function rebuildPublicHeader() {
     if (page === 'home' || page === 'dashboard' || page === 'admin') return;
     const header=document.querySelector('.site-header'); if(!header) return;
     header.className='market-header';
-    header.innerHTML='<div class="container market-nav"><a class="market-brand" href="./index.html" aria-label="Maro Services Hub home"><img src="./assets/msh-logo.svg" alt=""><span>MSH</span></a><nav class="desktop-nav"><a href="./index.html">Home</a><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a><a href="./about.html">About</a></nav><div class="nav-account"><a href="./dashboard.html">Login</a><a class="button button-primary button-small" href="./add-business.html">List Your Business</a></div><button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span><span></span></button><nav class="site-nav mobile-drawer" id="site-nav"><a href="./index.html">Home</a><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a><a href="./about.html">About</a><a href="./dashboard.html">My Dashboard</a><a class="button button-primary" href="./add-business.html">List Your Business</a></nav></div>';
+    header.innerHTML='<div class="container market-nav"><a class="market-brand" href="./index.html" aria-label="VOMA home"><img src="./assets/voma-logo.png" alt="VOMA logo"></a><nav class="desktop-nav"><a href="./index.html">Home</a><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a><a href="./about.html">About</a></nav><div class="nav-account"><a href="./dashboard.html">Login</a><a class="button button-primary button-small" href="./add-business.html">List Your Business</a></div><button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span><span></span></button><nav class="site-nav mobile-drawer" id="site-nav"><a href="./index.html">Home</a><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a><a href="./about.html">About</a><a href="./dashboard.html">My Dashboard</a><a class="button button-primary" href="./add-business.html">List Your Business</a></nav></div>';
   }
 
   function categoryIcon() {
@@ -104,15 +104,15 @@
 
   function setupDashboardShell() {
     const layout = document.querySelector('.dashboard-layout'); if (!layout || layout.querySelector('.dashboard-app-nav')) return;
-    const nav = document.createElement('aside'); nav.className='dashboard-app-nav'; nav.innerHTML='<a class="market-brand" href="./index.html"><img src="./assets/msh-logo.svg" alt=""><span>Maro <b>Hub</b></span></a><nav><a href="#owner-dashboard-summary">Overview</a><a href="#owner-profile-form">Edit business</a><a href="#owner-photos-form">Photos</a><a href="#promotion-panel">Promote business</a><a href="#promotion-history">Promotion history</a></nav><a class="dashboard-back-link" href="./index.html">← Back to marketplace</a>';
+    const nav = document.createElement('aside'); nav.className='dashboard-app-nav'; nav.innerHTML='<a class="market-brand" href="./index.html" aria-label="VOMA home"><img src="./assets/voma-logo.png" alt="VOMA logo"></a><nav><a href="#owner-dashboard-summary">Overview</a><a href="#owner-profile-form">Edit business</a><a href="#owner-photos-form">Photos</a><a href="#promotion-panel">Promote business</a><a href="#promotion-history">Promotion history</a></nav><a class="dashboard-back-link" href="./index.html">← Back to marketplace</a>';
     layout.prepend(nav); layout.classList.add('dashboard-app-shell');
     const authPanel = document.getElementById('owner-auth-panel');
-    if (authPanel) { const authShell=document.createElement('div'); authShell.className='auth-experience'; authShell.innerHTML='<div class="auth-visual"><span class="overline">Maro for business</span><h2>Your local customers are already looking.</h2><p>Manage your listing, show your work and grow your visibility from one place.</p></div>'; authPanel.parentNode.insertBefore(authShell,authPanel); authShell.appendChild(authPanel); }
+    if (authPanel) { const authShell=document.createElement('div'); authShell.className='auth-experience'; authShell.innerHTML='<div class="auth-visual"><span class="overline">VOMA for business</span><h2>Your local customers are already looking.</h2><p>Manage your listing, show your work and grow your visibility from one place.</p></div>'; authPanel.parentNode.insertBefore(authShell,authPanel); authShell.appendChild(authPanel); }
   }
 
   function setupAdminShell() {
     const container = document.querySelector('body[data-page="admin"] main .container'); if (!container || container.querySelector('.admin-app-nav')) return;
-    const nav=document.createElement('aside'); nav.className='admin-app-nav'; nav.innerHTML='<div class="admin-brand">MSH <span>Admin</span></div><nav><a href="#admin-panel">Overview</a><a href="#admin-pending-list">Pending approvals</a><a href="#admin-promotions-list">Promotions</a><a href="#admin-report-list">Reports</a></nav><a href="./index.html">← View marketplace</a>';
+    const nav=document.createElement('aside'); nav.className='admin-app-nav'; nav.innerHTML='<a class="admin-brand" href="./index.html" aria-label="VOMA home"><img src="./assets/voma-logo.png" alt="VOMA logo"><span>Admin</span></a><nav><a href="#admin-panel">Overview</a><a href="#admin-pending-list">Pending approvals</a><a href="#admin-promotions-list">Promotions</a><a href="#admin-report-list">Reports</a></nav><a href="./index.html">← View marketplace</a>';
     container.prepend(nav); container.classList.add('admin-app-shell');
     const metrics=document.createElement('section'); metrics.className='admin-metric-grid admin-dashboard-only'; metrics.innerHTML='<article><span>Pending approvals</span><strong id="metric-pending">—</strong></article><article><span>Active promotions</span><strong id="metric-promotions">—</strong></article><article><span>Open reports</span><strong id="metric-reports">—</strong></article>'; const panel=document.getElementById('admin-panel'); if(panel) container.insertBefore(metrics,panel);
   }
@@ -432,7 +432,7 @@
       return '';
     }
 
-    return '<span class="tag verified-badge">Verified by Maro Services Hub</span>';
+    return '<span class="tag verified-badge">Verified by VOMA</span>';
   }
 
   /* ==========================================
@@ -506,7 +506,7 @@
     return (
       'Check out ' +
       businessName +
-      ' on Maro Services Hub. Category: ' +
+      ' on VOMA. Category: ' +
       category +
       '. Location: ' +
       locationText +
@@ -1570,7 +1570,7 @@
 
       statusNode.hidden = true;
       profileNode.innerHTML = createBusinessProfile(business);
-      document.title = 'Maro Solution | ' + business.name;
+      document.title = 'VOMA | ' + business.name;
     } catch (error) {
       statusNode.textContent = error.message;
     }

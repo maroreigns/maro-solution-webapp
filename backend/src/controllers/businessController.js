@@ -340,7 +340,7 @@ const getBusinessById = asyncHandler(async (req, res) => {
  */
 function getOwnerStatusMessage(business) {
   if (business.status === 'approved' && business.paymentStatus === 'verified') {
-    return 'Congratulations! Your business listing has been approved and is now live on Maro Services Hub.';
+    return 'Congratulations! Your business listing has been approved and is now live on VOMA.';
   }
 
   if (business.status === 'rejected') {
@@ -637,7 +637,7 @@ const forgotOwnerPassword = asyncHandler(async (req, res) => {
       const businessName = business.name || 'there';
       const text = `Hello ${businessName},
 
-We received a request to reset your Maro Services Hub password.
+We received a request to reset your VOMA password.
 Use this link within 1 hour to choose a new password:
 ${resetLink}
 
@@ -645,10 +645,10 @@ If you did not request this, you can ignore this email.`;
 
       await sendEmail({
         to: business.email,
-        subject: 'Reset your Maro Services Hub password',
+        subject: 'Reset your VOMA password',
         text,
         html: `<p>Hello ${escapeHtml(businessName)},</p>
-<p>We received a request to reset your Maro Services Hub password.</p>
+<p>We received a request to reset your VOMA password.</p>
 <p><a href="${escapeHtml(resetLink)}">Reset your password</a></p>
 <p>This link expires in 1 hour. If you did not request this, you can ignore this email.</p>`,
       });
@@ -898,15 +898,15 @@ async function sendApprovalEmail(business) {
   const businessName = business.name || 'there';
   const text = `Hello ${businessName},
 
-Congratulations! Your business listing has been approved and is now live on Maro Services Hub.
+Congratulations! Your business listing has been approved and is now live on VOMA.
 Customers can now find your business and contact you directly through WhatsApp or phone.`;
 
   await sendEmail({
     to: business.email,
-    subject: 'Your listing is now live on Maro Services Hub',
+    subject: 'Your listing is now live on VOMA',
     text,
     html: `<p>Hello ${escapeHtml(businessName)},</p>
-<p>Congratulations! Your business listing has been approved and is now live on Maro Services Hub.</p>
+<p>Congratulations! Your business listing has been approved and is now live on VOMA.</p>
 <p>Customers can now find your business and contact you directly through WhatsApp or phone.</p>`,
   });
 }
@@ -936,15 +936,15 @@ async function sendRejectionEmail(business, state = {}) {
   const text = `Hello ${businessName},
 
 Your business listing was not approved at this time.
-Please contact Maro Services Hub support for more information.`;
+Please contact VOMA support for more information.`;
 
   await sendEmail({
     to: business.email,
-    subject: 'Update on your Maro Services Hub listing',
+    subject: 'Update on your VOMA listing',
     text,
     html: `<p>Hello ${escapeHtml(businessName)},</p>
 <p>Your business listing was not approved at this time.</p>
-<p>Please contact Maro Services Hub support for more information.</p>`,
+<p>Please contact VOMA support for more information.</p>`,
   });
 }
 
@@ -1375,7 +1375,7 @@ Reporter contact: ${reporterContact || 'Not provided'}`;
 
   res.status(201).json({
     success: true,
-    message: 'Report submitted. Thank you for helping keep Maro Services Hub trusted.',
+    message: 'Report submitted. Thank you for helping keep VOMA trusted.',
     data: report,
   });
 });

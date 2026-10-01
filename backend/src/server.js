@@ -17,7 +17,7 @@ async function startServer() {
     }
 
     app.listen(port, () => {
-      console.log(`Maro Solution server is running on http://localhost:${port}`);
+      console.log(`VOMA server is running on http://localhost:${port}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error.message);

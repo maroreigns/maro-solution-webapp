@@ -207,7 +207,7 @@ We will notify you once your listing is approved.`;
 
     await sendEmail({
       to: business.email,
-      subject: 'Payment confirmed - Maro Services Hub',
+      subject: 'Payment confirmed - VOMA',
       text,
       html: `<p>Hello ${escapeHtml(businessName)},</p>
 <p>Your listing payment has been confirmed.</p>

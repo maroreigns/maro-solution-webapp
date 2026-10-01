@@ -1,8 +1,8 @@
-# Maro Services Hub Project Documentation
+# VOMA Project Documentation
 
 ## 1. Project Overview
 
-Maro Services Hub is a service directory for Nigeria. Visitors can search for local service providers by category, state, local government, and keyword. Business owners can submit listings, pay the listing fee, manage their profile, upload photos, and optionally add Google Maps coordinates. Admin users review payments, approve or reject listings, verify phone numbers, and handle trust reports.
+VOMA is a service marketplace for Nigeria. Visitors can search for local service providers by category, state, local government, and keyword. Business owners can submit listings, pay the listing fee, manage their profile, upload photos, and optionally add Google Maps coordinates. Admin users review payments, approve or reject listings, verify phone numbers, and handle trust reports.
 
 ## 2. Technology Stack
 

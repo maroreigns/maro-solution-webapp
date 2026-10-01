@@ -1,7 +1,7 @@
 {
   "name": "maro-solution-backend",
   "version": "1.0.0",
-  "description": "Backend API for Maro Solution",
+  "description": "Backend API for VOMA",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
