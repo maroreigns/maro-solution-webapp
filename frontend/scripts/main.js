@@ -1311,6 +1311,13 @@
     return payload;
   }
 
+  async function reviewAdminPromotion(promotionId, action) {
+    const response = await fetch(promotionApiBaseUrl + '/admin/' + encodeURIComponent(promotionId) + '/' + action, { method: 'PATCH', headers: getAdminAuthHeaders() });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || 'Unable to review promotion.');
+    return payload;
+  }
+
   async function resolveBusinessReport(reportId) {
     const response = await fetch(
       apiBaseUrl + '/admin/reports/' + encodeURIComponent(reportId) + '/resolve',
@@ -1523,10 +1530,11 @@
   async function loadFeaturedBusinesses() {
     const listNode = document.getElementById('featured-businesses');
     const loadingNode = document.getElementById('featured-loading');
+    const sectionNode = document.getElementById('sponsored-section');
 
     try {
       const businesses = await fetchBusinesses();
-      loadingNode.hidden = true;
+      if (loadingNode) loadingNode.hidden = true;
 
       if (!businesses.length) {
         listNode.innerHTML =
@@ -1535,9 +1543,11 @@
       }
 
       const promoted = businesses.filter(function (business) { return business.isPromoted; });
-      listNode.innerHTML = promoted.length ? promoted.slice(0, 6).map(createProviderCard).join('') : '<div class="market-empty-state"><strong>No sponsored businesses right now</strong><span>Explore all service providers in the marketplace.</span><a href="./listings.html">Browse services →</a></div>';
+      if (promoted.length) sectionNode.hidden = false;
+      listNode.innerHTML = promoted.length ? promoted.slice(0, 6).map(createProviderCard).join('') : '';
     } catch (error) {
-      loadingNode.textContent = error.message;
+      if (loadingNode) loadingNode.textContent = error.message;
+      if (sectionNode) sectionNode.hidden = true;
     }
   }
 
@@ -1744,6 +1754,8 @@
     const filterDrawer = document.getElementById('filter-drawer');
     const openFilters = document.getElementById('open-filters');
     const closeFilters = document.getElementById('close-filters');
+    const sortSelect = document.getElementById('listings-sort');
+    const activeFilterChips = document.getElementById('active-filter-chips');
     const adminToggle = document.getElementById('admin-toggle');
     const adminPanel = document.getElementById('admin-panel');
     const adminRefresh = document.getElementById('admin-refresh');
@@ -1917,6 +1929,12 @@
         localGovernment: lgaSelect.value,
       };
 
+      if (activeFilterChips) {
+        activeFilterChips.innerHTML = Object.entries(params).filter(function (entry) { return entry[1]; }).map(function (entry) {
+          return '<button type="button" class="filter-chip" data-remove-filter="' + escapeHtml(entry[0]) + '">' + escapeHtml(entry[1]) + ' <span aria-hidden="true">×</span></button>';
+        }).join('');
+      }
+
       const nextQuery = new URLSearchParams();
       Object.entries(params).forEach(function ([key, value]) {
         if (value) {
@@ -1947,11 +1965,15 @@
           ' service provider' +
           (businesses.length === 1 ? '' : 's') +
           ' found.';
-        const sponsored = businesses.filter(function (business) { return business.isPromoted; });
-        const organic = businesses.filter(function (business) { return !business.isPromoted; });
+        const ordered = businesses.slice().sort(function (a, b) {
+          if (sortSelect && sortSelect.value === 'rating') return (Number(b.ratingAverage) || 0) - (Number(a.ratingAverage) || 0) || (Number(b.ratingCount) || 0) - (Number(a.ratingCount) || 0);
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+        const sponsored = ordered.filter(function (business) { return business.isPromoted; });
+        const organic = ordered.filter(function (business) { return !business.isPromoted; });
         listingsGrid.innerHTML =
           (sponsored.length ? '<div class="listing-group-title"><span>Sponsored</span><small>Relevant paid placements</small></div>' + sponsored.map(createProviderCard).join('') : '') +
-          '<div class="listing-group-title"><span>All businesses</span><small>Organic results</small></div>' +
+          (organic.length ? '<div class="listing-group-title"><span>All businesses</span><small>Organic results</small></div>' : '') +
           organic.map(createProviderCard).join('');
       } catch (error) {
         resultsMeta.textContent = error.message;
@@ -2105,13 +2127,17 @@
         adminPromotionsMeta.textContent = promotions.length + ' promotion record' + (promotions.length === 1 ? '' : 's') + '.';
         adminPromotionsList.innerHTML = promotions.length ? promotions.map(function (item) {
           const business = item.business || {};
-          return '<article class="admin-report-card" data-promotion-id="' + escapeHtml(item._id) + '"><div><span class="status-badge status-' + escapeHtml(item.status) + '">' + escapeHtml(item.status) + '</span><h3>' + escapeHtml(business.name || 'Deleted business') + '</h3><p>' + escapeHtml(item.plan) + ' · ' + Number(item.durationDays) + ' days · ₦' + Number(item.amount).toLocaleString('en-NG') + '</p><small>' + escapeHtml(item.paymentReference) + '</small></div>' + (item.status === 'active' || item.status === 'pending' ? '<button class="button button-danger" type="button" data-cancel-promotion>Deactivate</button>' : '') + '</article>';
+          const approval = item.approvalStatus || 'pending';
+          const reviewActions = item.paymentStatus === 'verified' && approval === 'pending' ? '<div class="admin-row-actions"><button class="button button-primary" type="button" data-review-promotion="approve">Approve</button><button class="button button-danger" type="button" data-review-promotion="reject">Reject</button></div>' : '';
+          return '<article class="admin-report-card" data-promotion-id="' + escapeHtml(item._id) + '"><div><div class="status-cluster"><span class="status-badge status-' + escapeHtml(item.status) + '">' + escapeHtml(item.status) + '</span><span class="status-badge">Approval: ' + escapeHtml(approval) + '</span><span class="status-badge">Payment: ' + escapeHtml(item.paymentStatus) + '</span></div><h3>' + escapeHtml(business.name || 'Deleted business') + '</h3><p>' + escapeHtml(item.plan) + ' · ' + Number(item.durationDays) + ' days · ₦' + Number(item.amount).toLocaleString('en-NG') + '</p><small>' + escapeHtml(item.paymentReference) + '</small></div><div class="admin-row-actions">' + reviewActions + (item.status === 'active' ? '<button class="button button-danger" type="button" data-cancel-promotion>Deactivate</button>' : '') + '</div></article>';
         }).join('') : '<div class="status-message">No promotion records yet.</div>';
       } catch (error) { adminPromotionsMeta.textContent = error.message; }
     }
 
     if (adminPromotionsRefresh) adminPromotionsRefresh.addEventListener('click', loadPromotionQueue);
     if (adminPromotionsList) adminPromotionsList.addEventListener('click', async function (event) {
+      const reviewButton = event.target.closest('[data-review-promotion]');
+      if (reviewButton) { const reviewCard=reviewButton.closest('[data-promotion-id]'); reviewButton.disabled=true; try { await reviewAdminPromotion(reviewCard.dataset.promotionId, reviewButton.dataset.reviewPromotion); await loadPromotionQueue(); } catch(error) { window.alert(error.message); reviewButton.disabled=false; } return; }
       const button = event.target.closest('[data-cancel-promotion]');
       if (!button) return;
       const card = button.closest('[data-promotion-id]');
@@ -2169,6 +2195,8 @@
     function setFilterDrawer(open) { if (!filterDrawer) return; filterDrawer.classList.toggle('is-open', open); document.body.classList.toggle('has-filter-drawer', open); }
     if (openFilters) openFilters.addEventListener('click', function(){ setFilterDrawer(true); });
     if (closeFilters) closeFilters.addEventListener('click', function(){ setFilterDrawer(false); });
+    if (sortSelect) sortSelect.addEventListener('change', runSearch);
+    if (activeFilterChips) activeFilterChips.addEventListener('click', function (event) { const chip=event.target.closest('[data-remove-filter]'); if(!chip)return; const field=filterForm.elements[chip.dataset.removeFilter]; if(field){field.value='';if(field===stateSelect)stateSelect.dispatchEvent(new Event('change'));} runSearch(); });
     document.querySelectorAll('[data-clear-filters]').forEach(function(button){ button.addEventListener('click', function(){ resetButton.click(); }); });
 
     if (adminToggle) {
@@ -2855,7 +2883,7 @@
           setFeedback(promotionFeedback, 'Verifying your secure promotion payment...', false);
           await verifyPromotionPayment(callbackReference);
           window.history.replaceState({}, '', pagePaths.dashboard);
-          setFeedback(promotionFeedback, 'Promotion payment verified. Your sponsored placement is active.', false);
+          setFeedback(promotionFeedback, 'Promotion payment verified. Your placement is awaiting admin approval.', false);
         }
         const results = await Promise.all([fetchPromotionPlans(), fetchOwnerPromotions()]);
         const plans = results[0]; const history = results[1];

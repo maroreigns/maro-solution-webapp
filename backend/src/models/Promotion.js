@@ -8,6 +8,7 @@ const promotionSchema = new mongoose.Schema({
   amount: { type: Number, required: true, min: 0 },
   paymentReference: { type: String, required: true, unique: true, trim: true, index: true },
   paymentStatus: { type: String, enum: ['initialized', 'verified', 'failed'], default: 'initialized', index: true },
+  approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true },
   status: { type: String, enum: ['pending', 'active', 'expired', 'cancelled'], default: 'pending', index: true },
   startsAt: Date,
   endsAt: { type: Date, index: true },
@@ -15,6 +16,8 @@ const promotionSchema = new mongoose.Schema({
   paystackAccessCode: { type: String, default: '', select: false },
   paystackAuthorizationUrl: { type: String, default: '', select: false },
   cancelledAt: Date,
+  approvedAt: Date,
+  rejectedAt: Date,
 }, { timestamps: true });
 
 promotionSchema.index({ business: 1, status: 1, startsAt: 1, endsAt: 1 });

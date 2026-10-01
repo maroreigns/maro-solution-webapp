@@ -12,5 +12,7 @@ router.get('/owner', requireOwnerAuth, controller.getOwnerPromotions);
 router.post('/initialize', limiter, requireOwnerAuth, sanitizeRequestBody, controller.initializePromotion);
 router.post('/verify', limiter, requireOwnerAuth, sanitizeRequestBody, controller.verifyPromotion);
 router.get('/admin', requireAdminAuth, controller.getAdminPromotions);
+router.patch('/admin/:id/approve', requireAdminAuth, controller.approvePromotion);
+router.patch('/admin/:id/reject', requireAdminAuth, controller.rejectPromotion);
 router.patch('/admin/:id/cancel', requireAdminAuth, controller.cancelPromotion);
 module.exports = { promotionRoutes: router };

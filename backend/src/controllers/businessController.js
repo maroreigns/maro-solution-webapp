@@ -279,10 +279,11 @@ const getBusinesses = asyncHandler(async (req, res) => {
   const businesses = await Business.find(filters).sort({ createdAt: -1 }).lean();
   const now = new Date();
   await Promotion.updateMany({ status: 'active', endsAt: { $lte: now } }, { $set: { status: 'expired' } });
-  await Promotion.updateMany({ status: 'pending', paymentStatus: 'verified', startsAt: { $lte: now }, endsAt: { $gt: now } }, { $set: { status: 'active' } });
+  await Promotion.updateMany({ approvalStatus: 'approved', status: 'pending', paymentStatus: 'verified', startsAt: { $lte: now }, endsAt: { $gt: now } }, { $set: { status: 'active' } });
   const activePromotions = await Promotion.find({
     business: { $in: businesses.map((business) => business._id) },
     paymentStatus: 'verified',
+    approvalStatus: 'approved',
     status: 'active',
     startsAt: { $lte: now },
     endsAt: { $gt: now },
