@@ -594,26 +594,6 @@
     );
   }
 
-  function createLegacyProviderCard(business) {
-    const businessId = getBusinessId(business);
-    const fallbackLetter = firstLetterFromName(business.name);
-    const availableImages = (Array.isArray(business.serviceImages) ? business.serviceImages : []).filter(Boolean);
-    const coverImage = availableImages[0] || business.profileImage || '';
-    const profileMarkup = coverImage ? '<img loading="lazy" src="' + resolveAssetUrl(coverImage) + '" alt="' + escapeHtml(business.name + ' work') + '" data-avatar-fallback="' + escapeHtml(fallbackLetter) + '" />' : '<span class="card-image-fallback">' + escapeHtml(fallbackLetter) + '</span>';
-    const description = String(business.serviceDescription || '').trim();
-
-    return [
-      '<article class="provider-card' + (business.isPromoted ? ' is-promoted' : '') + '">',
-      '  <a class="provider-cover" href="' + pagePaths.business + '?id=' + encodeURIComponent(businessId) + '">' + profileMarkup + (business.isPromoted ? '<span class="sponsored-label">Sponsored</span>' : '') + '</a>',
-      '  <div class="provider-card-body"><span class="card-category">' + escapeHtml(business.category) + '</span>',
-      '  <div class="card-title-row"><h3>' + escapeHtml(business.name) + '</h3>' + createVerifiedBadge(business) + '</div>',
-      '  <div class="card-facts"><span>' + formatRatingSummary(business.ratingAverage, business.ratingCount) + '</span><span>•</span><span>' + escapeHtml(business.localGovernment + ', ' + business.state) + '</span></div>',
-      description ? '<p class="card-description">' + escapeHtml(description.length > 105 ? description.slice(0, 102) + '…' : description) + '</p>' : '',
-      '  <div class="card-link-row"><a href="' + pagePaths.business + '?id=' + encodeURIComponent(businessId) + '">View profile <span>→</span></a>' + createAdminDeleteButton(business) + '</div></div>',
-      '</article>',
-    ].join('');
-  }
-
   function createProviderCard(business) {
     const businessId = getBusinessId(business);
     const initials = String(business.name || 'VOMA').trim().split(/\s+/).slice(0, 2).map(function (part) {
@@ -629,9 +609,8 @@
       '<article class="provider-card directory-card' + (business.isPromoted ? ' is-promoted' : '') + '">',
       business.isPromoted ? '<span class="sponsored-label">Sponsored</span>' : '',
       '<a class="provider-avatar directory-avatar" href="' + profileUrl + '" aria-label="View ' + escapeHtml(business.name) + ' profile">' + profileMarkup + '</a>',
-      '<div class="provider-card-body"><span class="card-category">' + escapeHtml(business.category) + '</span>',
+      '<div class="provider-card-body"><a class="directory-category" href="' + profileUrl + '">' + escapeHtml(business.category) + '</a>',
       '<h3 class="directory-name"><a href="' + profileUrl + '">' + escapeHtml(business.name) + '</a></h3>',
-      '<dl class="directory-location"><div><dt>State</dt><dd>' + escapeHtml(business.state) + '</dd></div><div><dt>LGA</dt><dd>' + escapeHtml(business.localGovernment) + '</dd></div></dl>',
       '<div class="directory-verification">' + createVerifiedBadge(business) + '</div>',
       '<div class="card-link-row"><a class="view-profile-link" href="' + profileUrl + '">View Profile <span aria-hidden="true">&rarr;</span></a>' + createAdminDeleteButton(business) + '</div></div>',
       '</article>',
