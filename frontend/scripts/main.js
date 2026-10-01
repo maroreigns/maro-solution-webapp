@@ -63,7 +63,7 @@
     if (page === 'home' || page === 'dashboard' || page === 'admin') return;
     const header=document.querySelector('.site-header'); if(!header) return;
     header.className='market-header';
-    header.innerHTML='<div class="container market-nav"><a class="market-brand" href="./index.html"><img src="./assets/msh-logo.svg" alt=""><span>Maro <b>Services Hub</b></span></a><nav class="desktop-nav"><a href="./listings.html">Explore</a><a href="./index.html#categories">Categories</a><a href="./add-business.html">Add Business</a></nav><div class="nav-account"><a href="./dashboard.html">Log in</a><a class="button button-primary button-small" href="./add-business.html">Sign up</a></div><button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span><span></span></button><nav class="site-nav mobile-drawer" id="site-nav"><a href="./index.html">Home</a><a href="./listings.html">Explore services</a><a href="./index.html#categories">Categories</a><a href="./add-business.html">Add Business</a><a href="./dashboard.html">My Dashboard</a><button class="theme-toggle" type="button" aria-label="Toggle dark mode"><span>◐</span></button></nav></div>';
+    header.innerHTML='<div class="container market-nav"><a class="market-brand" href="./index.html" aria-label="Maro Services Hub home"><img src="./assets/msh-logo.svg" alt=""><span>MSH</span></a><nav class="desktop-nav"><a href="./index.html">Home</a><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a><a href="./about.html">About</a></nav><div class="nav-account"><a href="./dashboard.html">Login</a><a class="button button-primary button-small" href="./add-business.html">List Your Business</a></div><button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span><span></span></button><nav class="site-nav mobile-drawer" id="site-nav"><a href="./index.html">Home</a><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a><a href="./about.html">About</a><a href="./dashboard.html">My Dashboard</a><a class="button button-primary" href="./add-business.html">List Your Business</a></nav></div>';
   }
 
   function categoryIcon() {
@@ -118,28 +118,9 @@
   }
 
   function setupTheme() {
-    const themeToggle = document.querySelector('.theme-toggle');
-    const savedTheme = localStorage.getItem('maro-theme');
-
-    if (savedTheme === 'dark') {
-      document.body.classList.add('dark-mode');
-    }
-
-    if (!themeToggle) {
-      return;
-    }
-
-    themeToggle.addEventListener('click', function () {
-      document.body.classList.toggle('dark-mode');
-      const isDark = document.body.classList.contains('dark-mode');
-      localStorage.setItem('maro-theme', isDark ? 'dark' : 'light');
-      themeToggle.setAttribute('aria-pressed', String(isDark));
-    });
-
-    themeToggle.setAttribute(
-      'aria-pressed',
-      String(document.body.classList.contains('dark-mode'))
-    );
+    document.body.classList.remove('dark-mode');
+    localStorage.removeItem('maro-theme');
+    document.querySelectorAll('.theme-toggle').forEach(function (toggle) { toggle.remove(); });
   }
 
   function setupMobileNav() {
@@ -1498,6 +1479,8 @@
       link.innerHTML = '<span class="category-icon">' + categoryIcon() + '</span><strong>' + escapeHtml(category) + '</strong><span class="category-arrow">→</span>';
       featuredCategoriesNode.appendChild(link);
     });
+    const phoneCategoriesNode = document.getElementById('phone-categories');
+    if (phoneCategoriesNode) phoneCategoriesNode.innerHTML = appData.businessCategories.slice(0, 4).map(function (category) { return '<span class="phone-category">' + escapeHtml(category) + '</span>'; }).join('');
 
     const heroSearchForm = document.getElementById('hero-search-form');
     if (heroSearchForm) {
@@ -1535,6 +1518,16 @@
     try {
       const businesses = await fetchBusinesses();
       if (loadingNode) loadingNode.hidden = true;
+      const homeBusinesses = document.getElementById('home-businesses');
+      if (homeBusinesses) homeBusinesses.innerHTML = businesses.length ? businesses.slice(0, 6).map(createProviderCard).join('') : '<div class="status-message">No approved businesses are available yet.</div>';
+      const phoneBusiness = document.getElementById('phone-business-preview');
+      const phoneEmpty = document.getElementById('phone-empty-preview');
+      if (phoneBusiness && businesses.length) {
+        const preview = businesses[0];
+        const image = ((preview.serviceImages || []).filter(Boolean)[0] || preview.profileImage || '');
+        phoneBusiness.innerHTML = (image ? '<img loading="lazy" src="' + escapeHtml(resolveAssetUrl(image)) + '" alt="" />' : '<span class="phone-business-image"></span>') + '<div class="phone-business-copy"><strong>' + escapeHtml(preview.name) + '</strong><span>' + escapeHtml(preview.category) + '</span><span>' + escapeHtml(preview.localGovernment + ', ' + preview.state) + '</span></div>';
+        phoneBusiness.hidden = false; if (phoneEmpty) phoneEmpty.hidden = true;
+      }
 
       if (!businesses.length) {
         listNode.innerHTML =
@@ -1548,6 +1541,7 @@
     } catch (error) {
       if (loadingNode) loadingNode.textContent = error.message;
       if (sectionNode) sectionNode.hidden = true;
+      const homeBusinesses = document.getElementById('home-businesses'); if (homeBusinesses) homeBusinesses.innerHTML = '<div class="status-message">Businesses could not be loaded right now.</div>';
     }
   }
 
