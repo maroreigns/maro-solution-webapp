@@ -47,11 +47,82 @@
     setupMobileNav();
     highlightCurrentPage();
     enhanceStructuralLayouts();
+    setupHeroSlideshow();
+    setupFloatingActions();
 
     const yearNode = document.getElementById('current-year');
     if (yearNode) {
       yearNode.textContent = new Date().getFullYear();
     }
+  }
+
+  function setupHeroSlideshow() {
+    const slideshow = document.querySelector('[data-hero-slideshow]');
+    if (!slideshow) return;
+
+    const slides = Array.from(slideshow.querySelectorAll('.artisan-slide'));
+    const dots = Array.from(slideshow.querySelectorAll('.artisan-dots span'));
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (slides.length < 2 || reduceMotion) return;
+
+    let activeIndex = 0;
+    window.setInterval(function () {
+      slides[activeIndex].classList.remove('is-active');
+      if (dots[activeIndex]) dots[activeIndex].classList.remove('is-active');
+      activeIndex = (activeIndex + 1) % slides.length;
+      slides[activeIndex].classList.add('is-active');
+      if (dots[activeIndex]) dots[activeIndex].classList.add('is-active');
+    }, 4500);
+  }
+
+  function setupFloatingActions() {
+    if (page === 'admin') return;
+
+    const actions = document.createElement('div');
+    actions.className = 'floating-actions';
+    const configuredNumber = String(
+      (window.MaroConfig && window.MaroConfig.WHATSAPP_NUMBER) || ''
+    ).replace(/\D/g, '');
+
+    if (configuredNumber) {
+      const whatsapp = document.createElement('a');
+      whatsapp.className = 'floating-action floating-whatsapp';
+      whatsapp.href =
+        'https://wa.me/' +
+        configuredNumber +
+        '?text=' +
+        encodeURIComponent('Hello VOMA, I need help finding a service provider.');
+      whatsapp.target = '_blank';
+      whatsapp.rel = 'noopener noreferrer';
+      whatsapp.setAttribute('aria-label', 'Contact VOMA on WhatsApp');
+      whatsapp.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5A11.8 11.8 0 0 0 12.1 0C5.5 0 .2 5.3.2 11.9c0 2.1.6 4.2 1.6 6L.1 24l6.3-1.7c1.8 1 3.8 1.5 5.8 1.5 6.6 0 11.9-5.3 11.9-11.9 0-3.2-1.3-6.2-3.6-8.4Zm-8.4 18.3c-1.8 0-3.6-.5-5.1-1.4l-.4-.2-3.7 1 1-3.6-.2-.4a9.9 9.9 0 1 1 8.4 4.6Zm5.4-7.4c-.3-.1-1.8-.9-2.1-1-.3-.1-.5-.1-.7.2l-.9 1.1c-.2.2-.3.2-.6.1-1.7-.8-2.8-1.5-3.9-3.4-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.4-1.2 1.2-1.2 2.9s1.2 3.3 1.4 3.6c.1.2 2.5 3.8 6 5.3 2.2.9 3.1 1 4.2.8.7-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.2 0-.4-.1-.7-.2Z"/></svg>';
+      actions.appendChild(whatsapp);
+    }
+
+    const scrollTop = document.createElement('button');
+    scrollTop.className = 'floating-action scroll-to-top';
+    scrollTop.type = 'button';
+    scrollTop.setAttribute('aria-label', 'Scroll to top');
+    scrollTop.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    scrollTop.addEventListener('click', function () {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    });
+    actions.appendChild(scrollTop);
+    document.body.appendChild(actions);
+
+    let ticking = false;
+    function updateScrollButton() {
+      scrollTop.classList.toggle('is-visible', window.scrollY > 400);
+      ticking = false;
+    }
+    window.addEventListener('scroll', function () {
+      if (!ticking) {
+        window.requestAnimationFrame(updateScrollButton);
+        ticking = true;
+      }
+    }, { passive: true });
+    updateScrollButton();
   }
 
   function rebuildFooter() {
@@ -1482,9 +1553,6 @@
       link.innerHTML = '<span class="category-icon">' + categoryIcon() + '</span><strong>' + escapeHtml(category) + '</strong><span class="category-arrow">→</span>';
       featuredCategoriesNode.appendChild(link);
     });
-    const phoneCategoriesNode = document.getElementById('phone-categories');
-    if (phoneCategoriesNode) phoneCategoriesNode.innerHTML = appData.businessCategories.slice(0, 4).map(function (category) { return '<span class="phone-category">' + escapeHtml(category) + '</span>'; }).join('');
-
     const heroSearchForm = document.getElementById('hero-search-form');
     if (heroSearchForm) {
       heroSearchForm.addEventListener('submit', function (event) {
@@ -1523,15 +1591,6 @@
       if (loadingNode) loadingNode.hidden = true;
       const homeBusinesses = document.getElementById('home-businesses');
       if (homeBusinesses) homeBusinesses.innerHTML = businesses.length ? businesses.slice(0, 6).map(createProviderCard).join('') : '<div class="status-message">No approved businesses are available yet.</div>';
-      const phoneBusiness = document.getElementById('phone-business-preview');
-      const phoneEmpty = document.getElementById('phone-empty-preview');
-      if (phoneBusiness && businesses.length) {
-        const preview = businesses[0];
-        const image = String(preview.profileImage || '').trim();
-        phoneBusiness.innerHTML = (image ? '<img loading="lazy" src="' + escapeHtml(resolveAssetUrl(image)) + '" alt="" />' : '<span class="phone-business-image"></span>') + '<div class="phone-business-copy"><strong>' + escapeHtml(preview.name) + '</strong><span>' + escapeHtml(preview.category) + '</span><span>' + escapeHtml(preview.localGovernment + ', ' + preview.state) + '</span></div>';
-        phoneBusiness.hidden = false; if (phoneEmpty) phoneEmpty.hidden = true;
-      }
-
       if (!businesses.length) {
         listNode.innerHTML =
           '<div class="status-message">No featured providers yet. Add a business to get started.</div>';
