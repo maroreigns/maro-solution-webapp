@@ -633,7 +633,7 @@ const forgotOwnerPassword = asyncHandler(async (req, res) => {
       await business.save();
 
       const resetLink =
-        'https://marosolutionapp.com/dashboard.html?resetToken=' +
+        'https://voma.ng/dashboard.html?resetToken=' +
         encodeURIComponent(resetToken) +
         '&email=' +
         encodeURIComponent(email);

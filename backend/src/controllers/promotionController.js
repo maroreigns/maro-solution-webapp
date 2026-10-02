@@ -47,7 +47,7 @@ const initializePromotion = asyncHandler(async (req, res) => {
   if (!plan || Number(plan.amount) <= 0 || Number(plan.durationDays) <= 0) return res.status(400).json({ success: false, message: 'Choose a valid promotion plan.' });
   const reference = `maro_promo_${business._id}_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
   const promotion = await Promotion.create({ business: business._id, ownerBusiness: business._id, plan: planId, durationDays: Number(plan.durationDays), amount: Number(plan.amount), paymentReference: reference });
-  const callback = new URL(process.env.PROMOTION_CALLBACK_URL || 'https://marosolutionapp.com/dashboard.html');
+  const callback = new URL(process.env.PROMOTION_CALLBACK_URL || 'https://voma.ng/dashboard.html');
   callback.searchParams.set('promotion', 'success'); callback.searchParams.set('reference', reference);
   const data = await paystack('/transaction/initialize', { method: 'POST', body: JSON.stringify({ email: business.email, amount: Math.round(Number(plan.amount) * 100), reference, callback_url: callback.toString(), metadata: { purpose: 'business_promotion', promotionId: String(promotion._id), businessId: String(business._id), plan: planId } }) });
   promotion.paystackAccessCode = data.access_code || ''; promotion.paystackAuthorizationUrl = data.authorization_url || ''; await promotion.save();

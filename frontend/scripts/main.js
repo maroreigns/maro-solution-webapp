@@ -1573,7 +1573,30 @@
 
       statusNode.hidden = true;
       profileNode.innerHTML = createBusinessProfile(business);
-      document.title = 'VOMA | ' + business.name;
+      const profileTitle = business.name + ' | VOMA';
+      const profileDescription = String(
+        business.description ||
+          'View ' + business.name + ' on VOMA and contact this local service provider.'
+      ).trim().slice(0, 160);
+      const profileUrl = 'https://voma.ng/business.html?id=' + encodeURIComponent(businessId);
+      const profileImage = /^https?:\/\//i.test(business.profileImage || '')
+        ? business.profileImage
+        : 'https://voma.ng/assets/voma-logo.png';
+      const setMetaContent = function (selector, content) {
+        const node = document.querySelector(selector);
+        if (node) node.setAttribute('content', content);
+      };
+
+      document.title = profileTitle;
+      document.querySelector('link[rel="canonical"]').setAttribute('href', profileUrl);
+      setMetaContent('meta[name="description"]', profileDescription);
+      setMetaContent('meta[property="og:title"]', profileTitle);
+      setMetaContent('meta[property="og:description"]', profileDescription);
+      setMetaContent('meta[property="og:url"]', profileUrl);
+      setMetaContent('meta[property="og:image"]', profileImage);
+      setMetaContent('meta[name="twitter:title"]', profileTitle);
+      setMetaContent('meta[name="twitter:description"]', profileDescription);
+      setMetaContent('meta[name="twitter:image"]', profileImage);
     } catch (error) {
       statusNode.textContent = error.message;
     }

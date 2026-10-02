@@ -24,6 +24,8 @@ const configuredOrigins = [
 
 const allowedOrigins = [
   ...configuredOrigins,
+  'https://voma.ng',
+  'https://www.voma.ng',
   'https://marosolutionapp.com',
   'https://www.marosolutionapp.com',
   'https://marosolutionwebapp.netlify.app',

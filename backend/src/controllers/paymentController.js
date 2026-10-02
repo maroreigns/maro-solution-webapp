@@ -11,7 +11,7 @@ const { escapeHtml, sendEmail } = require('../utils/email');
 const { sanitizeString } = require('../utils/sanitize');
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
-const PAYSTACK_CALLBACK_BASE_URL = 'https://marosolutionapp.com/listings.html';
+const PAYSTACK_CALLBACK_BASE_URL = 'https://voma.ng/listings.html';
 
 /**
  * Read the Paystack secret key or raise a public configuration error.

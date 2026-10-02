@@ -347,7 +347,7 @@ NGN 4,500, and 30 days / NGN 8,000. Set production values explicitly, for exampl
 
 ```env
 PROMOTION_PLANS_JSON={"starter":{"durationDays":7,"amount":2500},"growth":{"durationDays":14,"amount":4500},"spotlight":{"durationDays":30,"amount":8000}}
-PROMOTION_CALLBACK_URL=https://marosolutionapp.com/dashboard.html
+PROMOTION_CALLBACK_URL=https://voma.ng/dashboard.html
 ```
 
 Promotion payments use the existing `PAYSTACK_SECRET_KEY`, but are isolated from
