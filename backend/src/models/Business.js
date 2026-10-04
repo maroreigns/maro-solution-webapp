@@ -190,6 +190,35 @@ const businessSchema = new mongoose.Schema(
     ownerLastLoginAt: {
       type: Date,
     },
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Owner',
+      default: null,
+      index: true,
+    },
+    googleId: {
+      type: String,
+      trim: true,
+      select: false,
+      sparse: true,
+    },
+    passwordResetCodeHash: {
+      type: String,
+      select: false,
+    },
+    passwordResetAttempts: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
+    passwordResetRequestedAt: {
+      type: Date,
+      select: false,
+    },
+    passwordResetVerifiedExpires: {
+      type: Date,
+      select: false,
+    },
   },
   {
     timestamps: {
@@ -200,7 +229,12 @@ const businessSchema = new mongoose.Schema(
       transform(doc, ret) {
         delete ret.passwordHash;
         delete ret.passwordResetTokenHash;
+        delete ret.passwordResetCodeHash;
+        delete ret.passwordResetAttempts;
+        delete ret.passwordResetRequestedAt;
         delete ret.passwordResetExpires;
+        delete ret.passwordResetVerifiedExpires;
+        delete ret.googleId;
         return ret;
       },
     },
@@ -208,7 +242,12 @@ const businessSchema = new mongoose.Schema(
       transform(doc, ret) {
         delete ret.passwordHash;
         delete ret.passwordResetTokenHash;
+        delete ret.passwordResetCodeHash;
+        delete ret.passwordResetAttempts;
+        delete ret.passwordResetRequestedAt;
         delete ret.passwordResetExpires;
+        delete ret.passwordResetVerifiedExpires;
+        delete ret.googleId;
         return ret;
       },
     },

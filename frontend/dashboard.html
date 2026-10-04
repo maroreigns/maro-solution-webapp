@@ -70,6 +70,10 @@
                 <button class="button button-primary" type="submit" id="owner-login-submit">Log In</button>
                 <button class="button button-secondary" type="button" id="show-forgot-password">Forgot Password</button>
               </div>
+              <div class="google-auth-option">
+                <div class="auth-divider"><span>OR</span></div>
+                <div class="google-signin" data-google-signin></div>
+              </div>
             </form>
 
             <form class="dashboard-stack" id="owner-forgot-form" hidden>
@@ -79,17 +83,25 @@
                 <input type="email" name="email" autocomplete="email" required />
               </label>
               <div class="filter-actions">
-                <button class="button button-primary" type="submit" id="owner-forgot-submit">Send Reset Link</button>
+                <button class="button button-primary" type="submit" id="owner-forgot-submit">Send Reset Code</button>
                 <button class="button button-secondary" type="button" id="show-owner-login">Back to Login</button>
+              </div>
+            </form>
+
+            <form class="dashboard-stack" id="owner-code-form" hidden>
+              <h2>Enter reset code</h2>
+              <label>
+                Reset code
+                <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+              </label>
+              <div class="filter-actions">
+                <button class="button button-primary" type="submit" id="owner-code-submit">Verify Code</button>
+                <button class="button button-secondary" type="button" data-back-to-login>Back to Login</button>
               </div>
             </form>
 
             <form class="dashboard-stack" id="owner-reset-form" hidden>
               <h2>Reset password</h2>
-              <label>
-                Email address
-                <input type="email" name="email" autocomplete="email" required />
-              </label>
               <label>
                 New password
                 <input type="password" name="newPassword" minlength="6" autocomplete="new-password" required />
@@ -98,7 +110,10 @@
                 Confirm new password
                 <input type="password" name="confirmPassword" minlength="6" autocomplete="new-password" required />
               </label>
-              <button class="button button-primary" type="submit" id="owner-reset-submit">Reset Password</button>
+              <div class="filter-actions">
+                <button class="button button-primary" type="submit" id="owner-reset-submit">Reset Password</button>
+                <button class="button button-secondary" type="button" data-back-to-login>Back to Login</button>
+              </div>
             </form>
           </section>
 

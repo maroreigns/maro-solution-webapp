@@ -30,15 +30,17 @@ const {
   updateOwnerPhotos,
   updateOwnerProfile,
   verifyBusinessPhone,
+  verifyOwnerResetCode,
   verifyPayment,
 } = require('../controllers/businessController');
+const { getGoogleAuthConfig, googleOwnerLogin } = require('../controllers/ownerAuthController');
 const { upload } = require('../middleware/upload');
 const {
   businessValidationRules,
   handleValidationResult,
 } = require('../middleware/validateBusiness');
 const { requireAdminAuth } = require('../middleware/adminAuth');
-const { requireOwnerAuth } = require('../middleware/ownerAuth');
+const { optionalOwnerAuth, requireOwnerAuth } = require('../middleware/ownerAuth');
 const { sanitizeRequestBody } = require('../utils/sanitize');
 
 const router = express.Router();
@@ -77,6 +79,30 @@ const adminDeleteLimiter = rateLimit({
   },
 });
 
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many reset requests. Please try again later.' },
+});
+
+const resetCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many reset attempts. Please try again later.' },
+});
+
+const googleLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many sign-in attempts. Please try again later.' },
+});
+
 // GET /api/businesses
 // List approved and paid businesses, with optional search filters.
 //
@@ -91,6 +117,7 @@ router
       { name: 'profileImage', maxCount: 1 },
       { name: 'serviceImages', maxCount: 3 },
     ]),
+    optionalOwnerAuth,
     sanitizeRequestBody,
     businessValidationRules,
     handleValidationResult,
@@ -119,11 +146,23 @@ router.post('/owner/login', sanitizeRequestBody, loginBusinessOwner);
 
 // POST /api/businesses/owner/forgot-password
 // Send an owner password reset email when the account exists.
-router.post('/owner/forgot-password', sanitizeRequestBody, forgotOwnerPassword);
+router.post('/owner/forgot-password', forgotPasswordLimiter, sanitizeRequestBody, forgotOwnerPassword);
+
+// POST /api/businesses/owner/verify-reset-code
+// Verify a one-time password reset code and issue a short-lived reset grant.
+router.post('/owner/verify-reset-code', resetCodeLimiter, sanitizeRequestBody, verifyOwnerResetCode);
 
 // POST /api/businesses/owner/reset-password
 // Complete owner password reset with a valid reset token.
-router.post('/owner/reset-password', sanitizeRequestBody, resetOwnerPassword);
+router.post('/owner/reset-password', resetCodeLimiter, sanitizeRequestBody, resetOwnerPassword);
+
+// GET /api/businesses/owner/google-config
+// Return the public Google OAuth client ID required by Google Identity Services.
+router.get('/owner/google-config', getGoogleAuthConfig);
+
+// POST /api/businesses/owner/google
+// Verify a Google ID credential and use the existing VOMA owner session flow.
+router.post('/owner/google', googleLoginLimiter, sanitizeRequestBody, googleOwnerLogin);
 
 // GET /api/businesses/owner/me
 // Return the authenticated owner listing for the dashboard.

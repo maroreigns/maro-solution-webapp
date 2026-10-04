@@ -4,9 +4,12 @@ const { Owner } = require('../models/Owner');
 const { Business } = require('../models/Business');
 const { asyncHandler } = require('../utils/asyncHandler');
 const { getOwnerJwtSecret } = require('../middleware/ownerAuth');
+const { emailLookup, normalizeEmail } = require('../utils/identity');
 
-function buildAccountToken(owner) {
-  return jwt.sign({ sub: String(owner._id), role: 'owner-account' }, getOwnerJwtSecret(), {
+function buildAccountToken(owner, business) {
+  const subject = business ? business._id : owner._id;
+  const role = business ? 'business-owner' : 'owner-account';
+  return jwt.sign({ sub: String(subject), role, ownerId: String(owner._id) }, getOwnerJwtSecret(), {
     expiresIn: '7d',
   });
 }
@@ -49,43 +52,33 @@ const googleOwnerLogin = asyncHandler(async (req, res) => {
     return res.status(401).json({ success: false, message: 'A verified Google email is required.' });
   }
 
-  const email = googleProfile.email.trim().toLowerCase();
-  let owner = await Owner.findOne({ googleId: googleProfile.sub }).select('+googleId');
+  const email = normalizeEmail(googleProfile.email);
+  let owner = await Owner.findOne({ googleId: googleProfile.sub }).select('+googleId +passwordHash');
 
   if (owner && owner.email !== email) {
     return res.status(409).json({ success: false, message: 'This Google account no longer matches the linked email.' });
   }
 
   if (!owner) {
-    owner = await Owner.findOne({ email }).select('+googleId');
+    owner = await Owner.findOne({ emailKey: email }).select('+googleId +passwordHash');
   }
 
-  if (owner && owner.googleId !== googleProfile.sub) {
+  if (owner && owner.googleId && owner.googleId !== googleProfile.sub) {
     return res.status(409).json({ success: false, message: 'This email is already linked to another Google account.' });
   }
 
-  if (!owner) {
-    const matchingBusinesses = await Business.find({ email }).select('_id ownerId').limit(2);
-    if (matchingBusinesses.length > 1) {
-      return res.status(409).json({
-        success: false,
-        message: 'More than one listing uses this email. Please contact support before linking Google sign-in.',
-      });
-    }
-    if (matchingBusinesses[0] && matchingBusinesses[0].ownerId) {
-      return res.status(409).json({
-        success: false,
-        message: 'This business is already linked to an owner account. Please contact support.',
-      });
-    }
+  let business = null;
+  let claimStatus = 'none';
 
+  if (!owner) {
     try {
       owner = await Owner.create({
         name: googleProfile.name || '',
         email,
+        emailKey: email,
         googleId: googleProfile.sub,
+        authProvider: 'google',
         avatar: googleProfile.picture || '',
-        businessId: matchingBusinesses[0] ? matchingBusinesses[0]._id : null,
         lastLoginAt: new Date(),
       });
     } catch (error) {
@@ -94,35 +87,60 @@ const googleOwnerLogin = asyncHandler(async (req, res) => {
       }
       throw error;
     }
-
-    if (matchingBusinesses[0]) {
-      const linkedBusiness = await Business.updateOne(
-        { _id: matchingBusinesses[0]._id, ownerId: null },
-        { $set: { ownerId: owner._id } }
-      );
-      if (!linkedBusiness.modifiedCount) {
-        await Owner.deleteOne({ _id: owner._id });
-        return res.status(409).json({
-          success: false,
-          message: 'This business was linked by another request. Please try signing in again.',
-        });
-      }
-    }
   } else {
+    owner.googleId = googleProfile.sub;
+    owner.authProvider = owner.passwordHash ? 'password+google' : 'google';
     owner.name = googleProfile.name || owner.name;
     owner.avatar = googleProfile.picture || owner.avatar;
     owner.lastLoginAt = new Date();
     await owner.save();
   }
 
-  const business = owner.businessId ? await Business.findById(owner.businessId) : null;
+  if (owner.businessId) {
+    business = await Business.findById(owner.businessId);
+  } else {
+    const matchingBusinesses = await Business.find({ email: emailLookup(email) })
+      .select('_id ownerId +passwordHash')
+      .limit(3);
+    const safelyLinkable = matchingBusinesses.filter(
+      (item) => item.passwordHash && !item.ownerId
+    );
+    if (matchingBusinesses.length > 1) {
+      claimStatus = 'ambiguous';
+    } else if (safelyLinkable.length === 1) {
+      const linked = await Business.updateOne(
+        { _id: safelyLinkable[0]._id, ownerId: null },
+        { $set: { ownerId: owner._id, googleId: googleProfile.sub } }
+      );
+      if (linked.modifiedCount) {
+        owner.passwordHash = safelyLinkable[0].passwordHash;
+        owner.authProvider = 'password+google';
+        owner.businessId = safelyLinkable[0]._id;
+        await owner.save();
+        business = await Business.findById(safelyLinkable[0]._id);
+      }
+    } else if (matchingBusinesses.length === 1) {
+      claimStatus = 'verification-required';
+    }
+  }
+
   return res.json({
     success: true,
-    message: business ? 'Google login successful.' : 'Google account created. Add your business to continue.',
-    token: buildAccountToken(owner),
+    message: business
+      ? 'Google login successful.'
+      : claimStatus === 'ambiguous'
+        ? 'Google account verified. Multiple listings use this email, so none were claimed automatically.'
+        : 'Google account verified. Add your business to continue.',
+    token: buildAccountToken(owner, business),
     data: business,
     account: accountPayload(owner),
+    claimStatus,
   });
 });
 
-module.exports = { googleOwnerLogin };
+const getGoogleAuthConfig = (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || '';
+  res.json({ success: true, enabled: Boolean(clientId), clientId });
+};
+
+module.exports = { getGoogleAuthConfig, googleOwnerLogin };

@@ -58,6 +58,13 @@ app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    contentSecurityPolicy: {
+      directives: {
+        scriptSrc: ["'self'", 'https://accounts.google.com/gsi/client'],
+        connectSrc: ["'self'", 'https://accounts.google.com/gsi/'],
+        frameSrc: ["'self'", 'https://accounts.google.com/gsi/'],
+      },
+    },
   })
 );
 

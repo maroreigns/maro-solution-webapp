@@ -10,6 +10,7 @@ const path = require('path');
 const { businessCategories } = require('../data/categories');
 const { nigeriaStatesAndLgas, nigeriaStates } = require('../data/nigeriaData');
 const { sanitizeString } = require('../utils/sanitize');
+const { normalizeEmail } = require('../utils/identity');
 
 const phoneRegex = /^\+?[0-9\s-]{7,20}$/;
 const suspiciousTextRegex = /(?:<|>|\{|\}|\$|\[|\]|javascript:|data:)/i;
@@ -129,7 +130,7 @@ const businessValidationRules = [
     .withMessage('Please provide a valid phone number.'),
   body('email')
     .trim()
-    .normalizeEmail()
+    .customSanitizer(normalizeEmail)
     .notEmpty()
     .withMessage('Email address is required for payment.')
     .isEmail()

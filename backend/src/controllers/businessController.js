@@ -12,11 +12,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { Business } = require('../models/Business');
+const { Owner } = require('../models/Owner');
 const { Report } = require('../models/Report');
 const { Promotion } = require('../models/Promotion');
 const { asyncHandler } = require('../utils/asyncHandler');
 const { escapeHtml, sendEmail } = require('../utils/email');
 const { sanitizeString } = require('../utils/sanitize');
+const { emailLookup, normalizeEmail, normalizePhone, phoneLookup } = require('../utils/identity');
 const { getOwnerJwtSecret } = require('../middleware/ownerAuth');
 
 /**
@@ -113,6 +115,78 @@ function hashResetToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+const PASSWORD_RESET_CODE_TTL_MS = 15 * 60 * 1000;
+const PASSWORD_RESET_VERIFIED_TTL_MS = 10 * 60 * 1000;
+const PASSWORD_RESET_RESEND_DELAY_MS = 60 * 1000;
+const PASSWORD_RESET_MAX_ATTEMPTS = 5;
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function duplicateOwnerIdentityResponse(res, identity) {
+  return res.status(409).json({
+    success: false,
+    message: identity === 'phone'
+      ? 'An account already exists with this phone number.'
+      : 'An account already exists with this email address.',
+  });
+}
+
+function duplicateOwnerKeyIdentity(error) {
+  if (!error || error.code !== 11000) return '';
+  return error.keyPattern && error.keyPattern.phoneKey ? 'phone' : 'email';
+}
+
+function clearPasswordReset(business) {
+  business.passwordResetCodeHash = undefined;
+  business.passwordResetTokenHash = undefined;
+  business.passwordResetExpires = undefined;
+  business.passwordResetVerifiedExpires = undefined;
+  business.passwordResetAttempts = 0;
+}
+
+async function findPasswordAccountByEmail(email, selectFields) {
+  const owner = await Owner.findOne({
+    emailKey: email,
+    passwordHash: { $exists: true, $nin: [null, ''] },
+  }).select(selectFields);
+  if (owner) return { account: owner, kind: 'owner' };
+
+  const business = await Business.findOne({
+    email: emailLookup(email),
+    ownerId: null,
+    passwordHash: { $exists: true, $nin: [null, ''] },
+  }).select(selectFields);
+  return business ? { account: business, kind: 'legacy-business' } : null;
+}
+
+async function findPendingResetAccountByEmail(email, selectFields) {
+  const owner = await Owner.findOne({
+    emailKey: email,
+    passwordResetCodeHash: { $exists: true, $nin: [null, ''] },
+  }).select(selectFields);
+  if (owner) return owner;
+  return Business.findOne({
+    email: emailLookup(email),
+    ownerId: null,
+    passwordResetCodeHash: { $exists: true, $nin: [null, ''] },
+  }).select(selectFields);
+}
+
+async function findVerifiedResetAccountByEmail(email, selectFields) {
+  const owner = await Owner.findOne({
+    emailKey: email,
+    passwordResetTokenHash: { $exists: true, $nin: [null, ''] },
+  }).select(selectFields);
+  if (owner) return owner;
+  return Business.findOne({
+    email: emailLookup(email),
+    ownerId: null,
+    passwordResetTokenHash: { $exists: true, $nin: [null, ''] },
+  }).select(selectFields);
+}
+
 /**
  * Build a signed owner JWT for dashboard access.
  *
@@ -120,7 +194,7 @@ function hashResetToken(token) {
  * @returns {string} Signed owner JWT, or empty string when not configured.
  * @sideeffects Reads owner JWT secret from environment.
  */
-function buildOwnerToken(business) {
+function buildOwnerToken(business, owner) {
   const secret = getOwnerJwtSecret();
 
   if (!secret) {
@@ -131,6 +205,7 @@ function buildOwnerToken(business) {
     {
       sub: String(business._id),
       role: 'business-owner',
+      ...(owner ? { ownerId: String(owner._id) } : {}),
     },
     secret,
     {
@@ -150,7 +225,12 @@ function buildBusinessPayload(business) {
   const payload = typeof business.toJSON === 'function' ? business.toJSON() : { ...business };
   delete payload.passwordHash;
   delete payload.passwordResetTokenHash;
+  delete payload.passwordResetCodeHash;
+  delete payload.passwordResetAttempts;
+  delete payload.passwordResetRequestedAt;
   delete payload.passwordResetExpires;
+  delete payload.passwordResetVerifiedExpires;
+  delete payload.googleId;
   return payload;
 }
 
@@ -423,10 +503,13 @@ const getBusinessOwnerStatus = asyncHandler(async (req, res) => {
 const createBusiness = asyncHandler(async (req, res) => {
   const profileImage = getUploadedFile(req, 'profileImage');
   const serviceImages = getUploadedFiles(req, 'serviceImages').map(buildImagePath);
+  const email = normalizeEmail(req.body.email);
+  const phoneKey = normalizePhone(req.body.phone);
   const password = typeof req.body.password === 'string' ? req.body.password : '';
   const confirmPassword =
     typeof req.body.confirmPassword === 'string' ? req.body.confirmPassword : '';
-  const passwordError = validatePasswordFields(password, confirmPassword);
+  const authenticatedOwner = req.ownerAccount || null;
+  const passwordError = authenticatedOwner ? '' : validatePasswordFields(password, confirmPassword);
 
   if (passwordError) {
     cleanupRequestUploads(req);
@@ -437,26 +520,72 @@ const createBusiness = asyncHandler(async (req, res) => {
     });
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  let owner = authenticatedOwner;
+  let ownerCreatedHere = false;
+  if (!owner) {
+    const emailOwner = await Owner.exists({ emailKey: email });
+    if (emailOwner) {
+      cleanupRequestUploads(req);
+      return duplicateOwnerIdentityResponse(res, 'email');
+    }
+    const phoneOwner = phoneKey ? await Owner.exists({ phoneKey }) : null;
+    if (phoneOwner) {
+      cleanupRequestUploads(req);
+      return duplicateOwnerIdentityResponse(res, 'phone');
+    }
+
+    try {
+      owner = await Owner.create({
+        name: req.body.name,
+        email,
+        emailKey: email,
+        phone: req.body.phone,
+        phoneKey: phoneKey || undefined,
+        passwordHash: await bcrypt.hash(password, 12),
+        authProvider: 'password',
+      });
+      ownerCreatedHere = true;
+    } catch (error) {
+      const duplicateIdentity = duplicateOwnerKeyIdentity(error);
+      if (duplicateIdentity) {
+        cleanupRequestUploads(req);
+        return duplicateOwnerIdentityResponse(res, duplicateIdentity);
+      }
+      throw error;
+    }
+  }
+
   const locationFields = getLocationFields(req.body);
 
-  const business = await Business.create({
-    name: req.body.name,
-    category: req.body.category,
-    state: req.body.state,
-    localGovernment: req.body.localGovernment,
-    phone: req.body.phone,
-    email: req.body.email,
-    address: req.body.address,
-    ...locationFields,
-    profileImage: buildImagePath(profileImage),
-    serviceDescription: sanitizeString(req.body.serviceDescription) || '',
-    serviceImages,
-    yearsExperience: Number(req.body.yearsExperience),
-    passwordHash,
-    status: 'pending',
-    paymentStatus: 'unpaid',
-  });
+  let business;
+  try {
+    business = await Business.create({
+      name: req.body.name,
+      category: req.body.category,
+      state: req.body.state,
+      localGovernment: req.body.localGovernment,
+      phone: req.body.phone,
+      email,
+      address: req.body.address,
+      ...locationFields,
+      profileImage: buildImagePath(profileImage),
+      serviceDescription: sanitizeString(req.body.serviceDescription) || '',
+      serviceImages,
+      yearsExperience: Number(req.body.yearsExperience),
+      ownerId: owner._id,
+      status: 'pending',
+      paymentStatus: 'unpaid',
+    });
+  } catch (error) {
+    if (ownerCreatedHere) await Owner.deleteOne({ _id: owner._id, businessId: null });
+    cleanupRequestUploads(req);
+    throw error;
+  }
+
+  if (!owner.businessId) {
+    owner.businessId = business._id;
+    await owner.save();
+  }
 
   res.status(201).json({
     success: true,
@@ -467,6 +596,7 @@ const createBusiness = asyncHandler(async (req, res) => {
       status: business.status,
       paymentStatus: business.paymentStatus,
     },
+    token: buildOwnerToken(business, owner),
   });
 });
 
@@ -481,7 +611,7 @@ const createBusiness = asyncHandler(async (req, res) => {
 const loginBusinessOwner = asyncHandler(async (req, res) => {
   const identifier = sanitizeString(
     req.body.identifier || req.body.emailOrPhone || req.body.email || req.body.phone || ''
-  ).toLowerCase();
+  );
   const password = typeof req.body.password === 'string' ? req.body.password : '';
 
   if (!identifier || !password) {
@@ -499,35 +629,105 @@ const loginBusinessOwner = asyncHandler(async (req, res) => {
     });
   }
 
-  const business = await Business.findOne({
-    $or: [{ email: identifier }, { phone: identifier }],
-  }).select('+passwordHash');
+  const looksLikeEmail = identifier.includes('@');
+  const identityKey = looksLikeEmail ? normalizeEmail(identifier) : normalizePhone(identifier);
+  const owner = await Owner.findOne(looksLikeEmail ? { emailKey: identityKey } : { phoneKey: identityKey })
+    .select('+passwordHash');
 
-  if (business && !business.passwordHash) {
-    return res.status(403).json({
-      success: false,
-      message: 'This listing does not have owner login set up yet. Please contact admin.',
+  if (owner && owner.passwordHash && await bcrypt.compare(password, owner.passwordHash)) {
+    const business = owner.businessId
+      ? await Business.findById(owner.businessId)
+      : await Business.findOne({ ownerId: owner._id });
+    if (!business) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your owner account is active. Add a business before opening the dashboard.',
+      });
+    }
+    owner.lastLoginAt = new Date();
+    await owner.save();
+    return res.json({
+      success: true,
+      message: 'Owner login successful.',
+      token: buildOwnerToken(business, owner),
+      data: buildBusinessPayload(business),
     });
   }
 
-  const isValidPassword = business
-    ? await bcrypt.compare(password, business.passwordHash || '')
-    : false;
+  const legacyMatches = await Business.find({
+    ...(looksLikeEmail ? { email: emailLookup(identityKey) } : { phone: phoneLookup(identityKey) }),
+    passwordHash: { $exists: true, $nin: [null, ''] },
+  }).select('+passwordHash').limit(2);
+  const validLegacyMatches = [];
+  for (const candidate of legacyMatches) {
+    if (await bcrypt.compare(password, candidate.passwordHash || '')) {
+      validLegacyMatches.push(candidate);
+    }
+  }
+  const business = validLegacyMatches[0] || null;
+  const ambiguousLegacyIdentity = validLegacyMatches.length > 1;
 
-  if (!business || !isValidPassword) {
+  if (!business) {
     return res.status(401).json({
       success: false,
       message: 'Invalid email, phone, or password.',
     });
   }
 
+  let linkedOwner = business.ownerId
+    ? await Owner.findById(business.ownerId).select('+passwordHash')
+    : null;
+  if (!linkedOwner && !ambiguousLegacyIdentity) {
+    const emailKey = normalizeEmail(business.email);
+    const phoneKey = normalizePhone(business.phone);
+    const [emailOwner, phoneOwner] = await Promise.all([
+      emailKey ? Owner.findOne({ emailKey }).select('+passwordHash') : null,
+      phoneKey ? Owner.findOne({ phoneKey }).select('+passwordHash') : null,
+    ]);
+    const identitiesConflict = emailOwner && phoneOwner && String(emailOwner._id) !== String(phoneOwner._id);
+    const candidateOwner = identitiesConflict ? null : (emailOwner || phoneOwner);
+
+    if (candidateOwner && (!candidateOwner.businessId || String(candidateOwner.businessId) === String(business._id))) {
+      linkedOwner = candidateOwner;
+    } else if (!candidateOwner && emailKey && !identitiesConflict) {
+      try {
+        linkedOwner = await Owner.create({
+          name: business.name,
+          email: emailKey,
+          emailKey,
+          phone: business.phone || '',
+          phoneKey: phoneKey || undefined,
+          passwordHash: business.passwordHash,
+          authProvider: 'password',
+          businessId: business._id,
+          lastLoginAt: new Date(),
+        });
+      } catch (error) {
+        if (!duplicateOwnerKeyIdentity(error)) throw error;
+      }
+    }
+
+    if (linkedOwner && (!linkedOwner.businessId || String(linkedOwner.businessId) === String(business._id))) {
+      if (!linkedOwner.passwordHash) {
+        linkedOwner.passwordHash = business.passwordHash;
+        linkedOwner.authProvider = linkedOwner.authProvider === 'google' || linkedOwner.authProvider === 'password+google'
+          ? 'password+google'
+          : 'password';
+      }
+      linkedOwner.businessId = business._id;
+      linkedOwner.lastLoginAt = new Date();
+      await linkedOwner.save();
+      business.ownerId = linkedOwner._id;
+    }
+  }
+
   business.ownerLastLoginAt = new Date();
   await business.save();
 
-  res.json({
+  return res.json({
     success: true,
     message: 'Owner login successful.',
-    token: buildOwnerToken(business),
+    token: buildOwnerToken(business, linkedOwner),
     data: buildBusinessPayload(business),
   });
 });
@@ -557,13 +757,14 @@ const getOwnerMe = asyncHandler(async (req, res) => {
  */
 const updateOwnerProfile = asyncHandler(async (req, res) => {
   const business = req.ownerBusiness;
+  const email = normalizeEmail(req.body.email);
 
   business.name = req.body.name;
   business.category = req.body.category;
   business.state = req.body.state;
   business.localGovernment = req.body.localGovernment;
   business.phone = req.body.phone;
-  business.email = req.body.email;
+  business.email = email;
   business.address = req.body.address;
   Object.assign(business, getLocationFields(req.body));
   business.serviceDescription = sanitizeString(req.body.serviceDescription) || '';
@@ -617,51 +818,143 @@ const updateOwnerPhotos = asyncHandler(async (req, res) => {
  * @sideeffects Stores reset token hash and may send reset email.
  */
 const forgotOwnerPassword = asyncHandler(async (req, res) => {
-  const genericMessage =
-    'If an account exists with this email, a password reset link has been sent.';
-  const email = sanitizeString(req.body.email || '').toLowerCase();
+  const email = normalizeEmail(req.body.email);
 
-  if (email) {
-    const business = await Business.findOne({ email }).select(
-      '+passwordResetTokenHash +passwordResetExpires'
-    );
-
-    if (business) {
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      business.passwordResetTokenHash = hashResetToken(resetToken);
-      business.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
-      await business.save();
-
-      const resetLink =
-        'https://voma.ng/dashboard.html?resetToken=' +
-        encodeURIComponent(resetToken) +
-        '&email=' +
-        encodeURIComponent(email);
-      const businessName = business.name || 'there';
-      const text = `Hello ${businessName},
-
-We received a request to reset your VOMA password.
-Use this link within 1 hour to choose a new password:
-${resetLink}
-
-If you did not request this, you can ignore this email.`;
-
-      await sendEmail({
-        to: business.email,
-        subject: 'Reset your VOMA password',
-        text,
-        html: `<p>Hello ${escapeHtml(businessName)},</p>
-<p>We received a request to reset your VOMA password.</p>
-<p><a href="${escapeHtml(resetLink)}">Reset your password</a></p>
-<p>This link expires in 1 hour. If you did not request this, you can ignore this email.</p>`,
-      });
-    }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
   }
 
-  res.json({
-    success: true,
-    message: genericMessage,
+  const passwordAccount = await findPasswordAccountByEmail(email,
+    '+passwordHash +passwordResetCodeHash +passwordResetTokenHash +passwordResetExpires +passwordResetAttempts +passwordResetRequestedAt +passwordResetVerifiedExpires'
+  );
+
+  if (!passwordAccount) {
+    const owner = await Owner.findOne({ emailKey: email }).select('authProvider');
+    if (owner) {
+      return res.status(400).json({
+        success: false,
+        message: 'This account uses Google Sign-In. Please continue with Google.',
+      });
+    }
+    const listingOnly = await Business.exists({ email: emailLookup(email) });
+    return res.status(listingOnly ? 409 : 404).json({
+      success: false,
+      message: listingOnly
+        ? 'This email is attached to a business listing, but no password login account has been created for it yet.'
+        : 'No account was found with this email address.',
+    });
+  }
+  const account = passwordAccount.account;
+
+  if (
+    account.passwordResetRequestedAt &&
+    account.passwordResetRequestedAt.getTime() > Date.now() - PASSWORD_RESET_RESEND_DELAY_MS
+  ) {
+    return res.status(429).json({
+      success: false,
+      message: 'Please wait before requesting another reset code.',
+    });
+  }
+
+  const resetCode = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
+  account.passwordResetCodeHash = await bcrypt.hash(resetCode, 12);
+  account.passwordResetTokenHash = undefined;
+  account.passwordResetExpires = new Date(Date.now() + PASSWORD_RESET_CODE_TTL_MS);
+  account.passwordResetVerifiedExpires = undefined;
+  account.passwordResetAttempts = 0;
+  account.passwordResetRequestedAt = new Date();
+  await account.save();
+
+  const sent = await sendEmail({
+    to: account.email,
+    subject: 'Your VOMA password reset code',
+    text: `VOMA
+
+Password Reset
+
+We received a request to reset your VOMA password.
+
+Your password reset code is: ${resetCode}
+
+This code expires in 15 minutes.
+
+If you did not request a password reset, you can ignore this email.`,
+    html: `<div style="font-family:Arial,sans-serif;color:#171717;line-height:1.6">
+<h1 style="margin-bottom:4px">VOMA</h1>
+<h2>Password Reset</h2>
+<p>We received a request to reset your VOMA password.</p>
+<p>Your password reset code is:</p>
+<p style="font-size:30px;font-weight:700;letter-spacing:8px">${escapeHtml(resetCode)}</p>
+<p>This code expires in 15 minutes.</p>
+<p>If you did not request a password reset, you can ignore this email.</p>
+</div>`,
   });
+
+  if (!sent) {
+    clearPasswordReset(account);
+    account.passwordResetRequestedAt = undefined;
+    await account.save();
+    return res.status(502).json({ success: false, message: 'Something went wrong. Please try again.' });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Password reset code sent. Check your email to continue.',
+  });
+});
+
+const verifyOwnerResetCode = asyncHandler(async (req, res) => {
+  const email = normalizeEmail(req.body.email);
+  const code = typeof req.body.code === 'string' ? req.body.code.trim() : '';
+
+  if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
+    return res.status(400).json({ success: false, message: 'The reset code is incorrect.' });
+  }
+
+  const account = await findPendingResetAccountByEmail(email,
+    '+passwordResetCodeHash +passwordResetTokenHash +passwordResetExpires +passwordResetAttempts +passwordResetVerifiedExpires'
+  );
+
+  if (!account || !account.passwordResetCodeHash || !account.passwordResetExpires) {
+    return res.status(400).json({ success: false, message: 'The reset code is incorrect.' });
+  }
+
+  if (account.passwordResetExpires.getTime() <= Date.now()) {
+    clearPasswordReset(account);
+    await account.save();
+    return res.status(400).json({
+      success: false,
+      message: 'This reset code has expired. Request a new one.',
+    });
+  }
+
+  if ((account.passwordResetAttempts || 0) >= PASSWORD_RESET_MAX_ATTEMPTS) {
+    clearPasswordReset(account);
+    await account.save();
+    return res.status(429).json({
+      success: false,
+      message: 'Too many incorrect attempts. Request a new reset code.',
+    });
+  }
+
+  const isCorrect = await bcrypt.compare(code, account.passwordResetCodeHash);
+  if (!isCorrect) {
+    account.passwordResetAttempts = (account.passwordResetAttempts || 0) + 1;
+    if (account.passwordResetAttempts >= PASSWORD_RESET_MAX_ATTEMPTS) {
+      clearPasswordReset(account);
+    }
+    await account.save();
+    return res.status(400).json({ success: false, message: 'The reset code is incorrect.' });
+  }
+
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  account.passwordResetTokenHash = hashResetToken(resetToken);
+  account.passwordResetVerifiedExpires = new Date(Date.now() + PASSWORD_RESET_VERIFIED_TTL_MS);
+  account.passwordResetCodeHash = undefined;
+  account.passwordResetAttempts = 0;
+  await account.save();
+
+  return res.json({ success: true, resetToken });
 });
 
 /**
@@ -673,8 +966,8 @@ If you did not request this, you can ignore this email.`;
  * @sideeffects Updates password hash and clears reset token fields.
  */
 const resetOwnerPassword = asyncHandler(async (req, res) => {
-  const email = sanitizeString(req.body.email || '').toLowerCase();
-  const token = typeof req.body.token === 'string' ? req.body.token : '';
+  const email = normalizeEmail(req.body.email);
+  const token = typeof req.body.resetToken === 'string' ? req.body.resetToken.trim() : '';
   const newPassword = typeof req.body.newPassword === 'string' ? req.body.newPassword : '';
   const confirmPassword =
     typeof req.body.confirmPassword === 'string' ? req.body.confirmPassword : '';
@@ -683,7 +976,7 @@ const resetOwnerPassword = asyncHandler(async (req, res) => {
   if (!email || !token) {
     return res.status(400).json({
       success: false,
-      message: 'Email and reset token are required.',
+      message: 'Email and verified reset session are required.',
     });
   }
 
@@ -694,32 +987,32 @@ const resetOwnerPassword = asyncHandler(async (req, res) => {
     });
   }
 
-  const business = await Business.findOne({ email }).select(
-    '+passwordResetTokenHash +passwordResetExpires'
+  const account = await findVerifiedResetAccountByEmail(email,
+    '+passwordResetTokenHash +passwordResetVerifiedExpires'
   );
   const tokenHash = hashResetToken(token);
   const hasValidReset =
-    business &&
-    business.passwordResetTokenHash &&
-    business.passwordResetTokenHash === tokenHash &&
-    business.passwordResetExpires &&
-    business.passwordResetExpires.getTime() > Date.now();
+    account &&
+    account.passwordResetTokenHash &&
+    account.passwordResetTokenHash === tokenHash &&
+    account.passwordResetVerifiedExpires &&
+    account.passwordResetVerifiedExpires.getTime() > Date.now();
 
   if (!hasValidReset) {
     return res.status(400).json({
       success: false,
-      message: 'Password reset link is invalid or has expired.',
+      message: 'Your verified reset session has expired. Request a new code.',
     });
   }
 
-  business.passwordHash = await bcrypt.hash(newPassword, 12);
-  business.passwordResetTokenHash = undefined;
-  business.passwordResetExpires = undefined;
-  await business.save();
+  account.passwordHash = await bcrypt.hash(newPassword, 12);
+  clearPasswordReset(account);
+  account.passwordResetRequestedAt = undefined;
+  await account.save();
 
   res.json({
     success: true,
-    message: 'Password reset successful. You can now log in.',
+    message: 'Password reset successful. You can now log in with your new password.',
   });
 });
 
@@ -1118,6 +1411,7 @@ const updateBusiness = asyncHandler(async (req, res) => {
   }
 
   const newProfileImage = req.file ? buildImagePath(req.file) : business.profileImage;
+  const email = normalizeEmail(req.body.email);
 
   if (req.file && business.profileImage) {
     cleanupUploadedFile(business.profileImage);
@@ -1128,7 +1422,7 @@ const updateBusiness = asyncHandler(async (req, res) => {
   business.state = req.body.state;
   business.localGovernment = req.body.localGovernment;
   business.phone = req.body.phone;
-  business.email = req.body.email;
+  business.email = email;
   business.address = req.body.address;
   Object.assign(business, getLocationFields(req.body));
   business.profileImage = newProfileImage;
@@ -1407,5 +1701,6 @@ module.exports = {
   updateOwnerPhotos,
   updateOwnerProfile,
   verifyBusinessPhone,
+  verifyOwnerResetCode,
   verifyPayment,
 };

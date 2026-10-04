@@ -72,6 +72,10 @@
 
           <form class="business-form card" id="business-form" enctype="multipart/form-data">
             <div class="form-feedback" id="form-feedback" hidden></div>
+            <div class="google-auth-option google-signup-option" id="google-signup-option">
+              <div class="auth-divider"><span>OR CONTINUE WITH</span></div>
+              <div class="google-signin" data-google-signin></div>
+            </div>
             <div class="submission-loading" id="submission-loading" role="status" aria-live="polite" hidden>
               <div class="submission-mascot" aria-hidden="true">
                 <svg viewBox="0 0 120 96" focusable="false">
@@ -161,7 +165,7 @@
               </label>
             </div>
 
-            <div class="form-row">
+            <div class="form-row" id="owner-password-fields">
               <label>
                 Enter password
                 <input type="password" name="password" minlength="6" autocomplete="new-password" required />

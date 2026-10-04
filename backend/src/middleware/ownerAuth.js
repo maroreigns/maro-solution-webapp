@@ -6,6 +6,7 @@
  */
 const jwt = require('jsonwebtoken');
 const { Business } = require('../models/Business');
+const { Owner } = require('../models/Owner');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 /**
@@ -48,15 +49,28 @@ const requireOwnerAuth = asyncHandler(async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, secret);
-    const business = await Business.findById(decoded.sub);
+    let business = null;
+    let owner = null;
 
-    if (!business || decoded.role !== 'business-owner') {
+    if (decoded.role === 'business-owner') {
+      business = await Business.findById(decoded.sub);
+      const ownerId = decoded.ownerId || (business && business.ownerId);
+      owner = ownerId ? await Owner.findById(ownerId) : null;
+    } else if (decoded.role === 'owner-account') {
+      owner = await Owner.findById(decoded.sub);
+      business = owner && owner.businessId
+        ? await Business.findById(owner.businessId)
+        : owner ? await Business.findOne({ ownerId: owner._id }) : null;
+    }
+
+    if (!business) {
       return res.status(401).json({
         success: false,
         message: 'Owner authentication required.',
       });
     }
 
+    req.ownerAccount = owner;
     req.ownerBusiness = business;
     return next();
   } catch (error) {
@@ -67,7 +81,35 @@ const requireOwnerAuth = asyncHandler(async (req, res, next) => {
   }
 });
 
+const optionalOwnerAuth = asyncHandler(async (req, res, next) => {
+  const authHeader = req.get('authorization') || '';
+  if (!authHeader) return next();
+  const [scheme, token] = authHeader.split(' ');
+  const secret = getOwnerJwtSecret();
+  if (scheme !== 'Bearer' || !token || !secret) {
+    return res.status(401).json({ success: false, message: 'Owner authentication required.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    if (decoded.role === 'owner-account') {
+      req.ownerAccount = await Owner.findById(decoded.sub);
+    } else if (decoded.role === 'business-owner') {
+      req.ownerBusiness = await Business.findById(decoded.sub);
+      const ownerId = decoded.ownerId || (req.ownerBusiness && req.ownerBusiness.ownerId);
+      req.ownerAccount = ownerId ? await Owner.findById(ownerId) : null;
+    }
+    if (!req.ownerAccount && !req.ownerBusiness) {
+      return res.status(401).json({ success: false, message: 'Owner authentication required.' });
+    }
+    return next();
+  } catch (error) {
+    return res.status(401).json({ success: false, message: 'Owner authentication required.' });
+  }
+});
+
 module.exports = {
   getOwnerJwtSecret,
+  optionalOwnerAuth,
   requireOwnerAuth,
 };

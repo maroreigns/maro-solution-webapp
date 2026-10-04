@@ -137,8 +137,24 @@
     header.innerHTML='<div class="container market-nav"><a class="market-brand" href="./index.html" aria-label="VOMA home"><img src="./assets/voma-logo.png" alt="VOMA logo"></a><nav class="desktop-nav"><a href="./index.html">Home</a><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a><a href="./about.html">About</a></nav><div class="nav-account"><a href="./dashboard.html">Login</a><a class="button button-primary button-small" href="./add-business.html">List Your Business</a></div><button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu"><span></span><span></span><span></span></button><nav class="site-nav mobile-drawer" id="site-nav"><a href="./index.html">Home</a><a href="./listings.html">Listings</a><a href="./index.html#categories">Categories</a><a href="./about.html">About</a><a href="./dashboard.html">My Dashboard</a><a class="button button-primary" href="./add-business.html">List Your Business</a></nav></div>';
   }
 
-  function categoryIcon() {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6m10-6v6M5 13h6v6H5zm10 0h4v6h-4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  function categoryIcon(category) {
+    const iconPaths = {
+      plumber: '<path d="M5 3v5h5m4 8h5v5M8 8l8 8M4 12h4m8 0h4M12 4v4m0 8v4"/>',
+      electrician: '<path d="m13 2-7 12h6l-1 8 7-12h-6l1-8Z"/>',
+      mechanic: '<path d="M7 17h10l2-5-2-4H7l-2 4 2 5Zm0 0v2m10-2v2M7.5 12h9M8 14.5h.01m7.99 0h.01"/>',
+      cleaner: '<path d="m6 20 4-11m1-4 .7-2M8.5 13h9l2 7h-13l2-7Zm4.5-8 1 1m4-2v2m3 2h-2"/>',
+      cook: '<path d="M7 11a4 4 0 0 1 1-7 4.5 4.5 0 0 1 8 0 4 4 0 0 1 1 7v9H7v-9Zm3 5h4"/>',
+      'land surveyor': '<path d="m3 6 5-3 8 3 5-3v15l-5 3-8-3-5 3V6Zm5-3v15m8-12v15M11 9h2m-1-1v2"/>',
+      caterer: '<path d="M3 17h18M5 17a7 7 0 0 1 14 0M12 7V5m-2 0h4"/>',
+      tailor: '<path d="M8.5 12 4 4m11.5 8L20 4M8.5 12 4 20m11.5-8 4.5 8M8.5 12h7M6 11a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm12 0a2 2 0 1 0 0 4 3 3 0 0 0 0-6Z"/>',
+      barber: '<path d="m4 4 16 16M20 4 4 20M6 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm12 12a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>',
+      'hair stylist': '<path d="M7 21v-5a5 5 0 0 1 10 0v5M6 10a6 6 0 0 1 12 0c0 2-1 4-3 5m-6 0c-2-1-3-3-3-5Zm3-4c1 2 3 3 6 3"/>',
+      'makeup artist': '<path d="m14 4 6 6-9 9-7 1 1-7 9-9Zm-9 9 6 6m4-14 4 4M4 20h16"/>',
+      carpenter: '<path d="m15 5 4 4m-6-2 4-4 4 4-4 4M14 10 5 19l-3-3 9-9m-7 11 2 2"/>'
+    };
+    const fallbackPath = '<path d="M14.7 6.3a4 4 0 0 0-5-5L12 3.6 9.6 6 7.3 3.7a4 4 0 0 0 5 5L4 17l3 3 8.3-8.3a4 4 0 0 0 5-5L18 9l-2.4-2.4 2.3-2.3a4 4 0 0 0-3.2 2Z"/>';
+    const key = String(category || '').trim().toLowerCase();
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (iconPaths[key] || fallbackPath) + '</svg>';
   }
 
   function enhanceStructuralLayouts() {
@@ -1215,16 +1231,31 @@
       },
       body: JSON.stringify({ email: email }),
     });
-    const payload = await response.json();
+    const payload = await response.json().catch(function () { return {}; });
 
     if (!response.ok) {
-      throw new Error(payload.message || 'Unable to send password reset link.');
+      throw new Error(payload.message || 'Something went wrong. Please try again.');
     }
 
     return payload;
   }
 
-  async function resetOwnerPassword(email, token, newPassword, confirmPassword) {
+  async function verifyOwnerResetCode(email, code) {
+    const response = await fetch(apiBaseUrl + '/owner/verify-reset-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, code: code }),
+    });
+    const payload = await response.json().catch(function () { return {}; });
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Something went wrong. Please try again.');
+    }
+
+    return payload;
+  }
+
+  async function resetOwnerPassword(email, resetToken, newPassword, confirmPassword) {
     const response = await fetch(apiBaseUrl + '/owner/reset-password', {
       method: 'POST',
       headers: {
@@ -1232,15 +1263,15 @@
       },
       body: JSON.stringify({
         email: email,
-        token: token,
+        resetToken: resetToken,
         newPassword: newPassword,
         confirmPassword: confirmPassword,
       }),
     });
-    const payload = await response.json();
+    const payload = await response.json().catch(function () { return {}; });
 
     if (!response.ok) {
-      throw new Error(payload.message || 'Unable to reset password.');
+      throw new Error(payload.message || 'Something went wrong. Please try again.');
     }
 
     return payload;
@@ -1364,6 +1395,111 @@
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.message || 'Unable to deactivate promotion.');
     return payload;
+  }
+
+  async function googleOwnerLogin(credential) {
+    const response = await fetch(apiBaseUrl + '/owner/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: credential }),
+    });
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) {
+      throw new Error(payload.message || 'Something went wrong. Please try again.');
+    }
+    return payload;
+  }
+
+  function loadGoogleIdentityScript() {
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      return Promise.resolve();
+    }
+
+    return new Promise(function (resolve, reject) {
+      const existing = document.querySelector('script[data-google-identity]');
+      if (existing) {
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.dataset.googleIdentity = 'true';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  async function initializeGoogleSignIn() {
+    const containers = Array.from(document.querySelectorAll('[data-google-signin]'));
+    if (!containers.length) return;
+
+    try {
+      const configResponse = await fetch(apiBaseUrl + '/owner/google-config');
+      const config = await configResponse.json().catch(function () { return {}; });
+      if (!configResponse.ok || !config.enabled || !config.clientId) {
+        throw new Error('Google sign-in is not configured.');
+      }
+
+      await loadGoogleIdentityScript();
+      window.google.accounts.id.initialize({
+        client_id: config.clientId,
+        callback: async function (googleResponse) {
+          const feedback = document.getElementById(page === 'dashboard' ? 'owner-auth-feedback' : 'form-feedback');
+          try {
+            const payload = await googleOwnerLogin(googleResponse.credential || '');
+            if (payload.token) {
+              sessionStorage.setItem(ownerJwtStorageKey, payload.token);
+            }
+            if (payload.data && payload.token) {
+              window.location.href = pagePaths.dashboard;
+              return;
+            }
+
+            sessionStorage.setItem('voma_google_account', JSON.stringify(payload.account || {}));
+            if (page === 'dashboard') {
+              window.location.href = pagePaths.addBusiness;
+              return;
+            }
+
+            const form = document.getElementById('business-form');
+            if (form && payload.account) {
+              if (form.elements.name && !form.elements.name.value) form.elements.name.value = payload.account.name || '';
+              if (form.elements.email) form.elements.email.value = payload.account.email || '';
+            }
+            if (feedback) {
+              feedback.hidden = false;
+              feedback.className = 'form-feedback success';
+              feedback.textContent = 'Google sign-in successful. Complete your business details to continue.';
+            }
+          } catch (error) {
+            if (feedback) {
+              feedback.hidden = false;
+              feedback.className = 'form-feedback error';
+              feedback.textContent = error.message || 'Something went wrong. Please try again.';
+            }
+          }
+        },
+      });
+
+      containers.forEach(function (container) {
+        window.google.accounts.id.renderButton(container, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          text: 'continue_with',
+          shape: 'rectangular',
+          width: Math.min(360, container.clientWidth || 360),
+        });
+      });
+    } catch (error) {
+      document.querySelectorAll('.google-auth-option').forEach(function (option) {
+        option.hidden = true;
+      });
+    }
   }
 
   async function reviewAdminPromotion(promotionId, action) {
@@ -1550,7 +1686,7 @@
       const link = document.createElement('a');
       link.className = 'category-market-card';
       link.href = pagePaths.listings + '?category=' + encodeURIComponent(category);
-      link.innerHTML = '<span class="category-icon">' + categoryIcon() + '</span><strong>' + escapeHtml(category) + '</strong><span class="category-arrow">→</span>';
+      link.innerHTML = '<span class="category-icon">' + categoryIcon(category) + '</span><strong>' + escapeHtml(category) + '</strong><span class="category-arrow">→</span>';
       featuredCategoriesNode.appendChild(link);
     });
     const heroSearchForm = document.getElementById('hero-search-form');
@@ -2607,6 +2743,25 @@
     const payListingFeeButton = document.getElementById('pay-listing-fee');
     let submittedBusinessId = '';
     let profilePreviewUrl = '';
+    const passwordFields = document.getElementById('owner-password-fields');
+    const hasAuthenticatedOwner = Boolean(getSavedOwnerJwt());
+
+    if (hasAuthenticatedOwner && passwordFields) {
+      passwordFields.hidden = true;
+      passwordFields.querySelectorAll('input').forEach(function (input) {
+        input.required = false;
+      });
+    }
+
+    try {
+      const googleAccount = JSON.parse(sessionStorage.getItem('voma_google_account') || '{}');
+      if (googleAccount.email) {
+        if (form.elements.name && !form.elements.name.value) form.elements.name.value = googleAccount.name || '';
+        if (form.elements.email) form.elements.email.value = googleAccount.email;
+      }
+    } catch (error) {
+      sessionStorage.removeItem('voma_google_account');
+    }
 
     function setSubmissionLoading(isLoading) {
       if (submissionLoading) {
@@ -2692,11 +2847,11 @@
         const password = String(formData.get('password') || '');
         const confirmPassword = String(formData.get('confirmPassword') || '');
 
-        if (password.length < 6) {
+        if (!hasAuthenticatedOwner && password.length < 6) {
           throw new Error('Password must be at least 6 characters.');
         }
 
-        if (password !== confirmPassword) {
+        if (!hasAuthenticatedOwner && password !== confirmPassword) {
           throw new Error('Confirm password must match password.');
         }
 
@@ -2704,6 +2859,7 @@
 
         const response = await fetch(apiBaseUrl, {
           method: 'POST',
+          headers: getOwnerAuthHeaders(),
           body: formData,
         });
         const payload = await response.json();
@@ -2715,6 +2871,10 @@
             })
             .join(' ');
           throw new Error(validationMessages || payload.message || 'Unable to add business.');
+        }
+
+        if (payload.token) {
+          sessionStorage.setItem(ownerJwtStorageKey, payload.token);
         }
 
         feedback.hidden = false;
@@ -2822,6 +2982,7 @@
     const dashboardFeedback = document.getElementById('owner-dashboard-feedback');
     const loginForm = document.getElementById('owner-login-form');
     const forgotForm = document.getElementById('owner-forgot-form');
+    const codeForm = document.getElementById('owner-code-form');
     const resetForm = document.getElementById('owner-reset-form');
     const showForgotButton = document.getElementById('show-forgot-password');
     const showLoginButton = document.getElementById('show-owner-login');
@@ -2841,10 +3002,10 @@
     const promotionHistoryNode = document.getElementById('promotion-history');
     const promotionFeedback = document.getElementById('promotion-feedback');
     const searchParams = new URLSearchParams(window.location.search);
-    const resetToken = searchParams.get('resetToken') || '';
-    const resetEmail = searchParams.get('email') || '';
     let currentBusiness = null;
     let dashboardProfilePreviewUrl = '';
+    let resetEmail = '';
+    let verifiedResetToken = '';
 
     if (!authPanel || !dashboardPanel) {
       return;
@@ -2871,6 +3032,7 @@
       dashboardPanel.hidden = true;
       loginForm.hidden = viewName !== 'login';
       forgotForm.hidden = viewName !== 'forgot';
+      codeForm.hidden = viewName !== 'code';
       resetForm.hidden = viewName !== 'reset';
       setFeedback(authFeedback, '', false);
     }
@@ -2996,17 +3158,12 @@
         renderDashboard(business);
       } catch (error) {
         sessionStorage.removeItem(ownerJwtStorageKey);
-        showAuthView(resetToken ? 'reset' : 'login');
+        showAuthView('login');
         setFeedback(authFeedback, error.message, true);
       }
     }
 
-    if (resetToken) {
-      showAuthView('reset');
-      if (resetForm.elements.email) {
-        resetForm.elements.email.value = resetEmail;
-      }
-    } else if (getSavedOwnerJwt()) {
+    if (getSavedOwnerJwt()) {
       loadOwnerDashboard();
     } else {
       showAuthView('login');
@@ -3018,6 +3175,14 @@
 
     showLoginButton.addEventListener('click', function () {
       showAuthView('login');
+    });
+
+    document.querySelectorAll('[data-back-to-login]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        resetEmail = '';
+        verifiedResetToken = '';
+        showAuthView('login');
+      });
     });
 
     loginForm.addEventListener('submit', async function (event) {
@@ -3056,14 +3221,38 @@
       setFeedback(authFeedback, '', false);
 
       try {
-        const payload = await forgotOwnerPassword(String(formData.get('email') || '').trim());
+        resetEmail = String(formData.get('email') || '').trim().toLowerCase();
+        const payload = await forgotOwnerPassword(resetEmail);
         forgotForm.reset();
-        setFeedback(authFeedback, payload.message || 'Password reset link sent if the account exists.', false);
+        showAuthView('code');
+        setFeedback(authFeedback, payload.message || 'Password reset code sent. Check your email to continue.', false);
       } catch (error) {
-        setFeedback(authFeedback, error.message, true);
+        setFeedback(authFeedback, error instanceof TypeError ? 'Something went wrong. Please try again.' : error.message, true);
       } finally {
         submitButton.disabled = false;
-        submitButton.textContent = 'Send Reset Link';
+        submitButton.textContent = 'Send Reset Code';
+      }
+    });
+
+    codeForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const submitButton = document.getElementById('owner-code-submit');
+      const code = String(new FormData(codeForm).get('code') || '').trim();
+      submitButton.disabled = true;
+      submitButton.textContent = 'Verifying...';
+      setFeedback(authFeedback, '', false);
+
+      try {
+        const payload = await verifyOwnerResetCode(resetEmail, code);
+        verifiedResetToken = payload.resetToken || '';
+        if (!verifiedResetToken) throw new Error('Something went wrong. Please try again.');
+        codeForm.reset();
+        showAuthView('reset');
+      } catch (error) {
+        setFeedback(authFeedback, error instanceof TypeError ? 'Something went wrong. Please try again.' : error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Verify Code';
       }
     });
 
@@ -3088,16 +3277,18 @@
         }
 
         const payload = await resetOwnerPassword(
-          String(formData.get('email') || '').trim(),
-          resetToken,
+          resetEmail,
+          verifiedResetToken,
           newPassword,
           confirmPassword
         );
         resetForm.reset();
+        resetEmail = '';
+        verifiedResetToken = '';
         showAuthView('login');
-        setFeedback(authFeedback, payload.message || 'Password reset successful. You can now log in.', false);
+        setFeedback(authFeedback, payload.message || 'Password reset successful. You can now log in with your new password.', false);
       } catch (error) {
-        setFeedback(authFeedback, error.message, true);
+        setFeedback(authFeedback, error instanceof TypeError ? 'Something went wrong. Please try again.' : error.message, true);
       } finally {
         submitButton.disabled = false;
         submitButton.textContent = 'Reset Password';
@@ -3234,5 +3425,9 @@
 
   if (page === 'dashboard') {
     initializeDashboardPage();
+  }
+
+  if (page === 'dashboard' || page === 'add-business') {
+    initializeGoogleSignIn();
   }
 })();
