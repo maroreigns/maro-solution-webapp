@@ -1410,12 +1410,21 @@
     return payload;
   }
 
+  let googleIdentityScriptPromise = null;
+  let googleAuthConfigPromise = null;
+  let googleIdentityInitialized = false;
+  let googleChooserAttemptActive = false;
+  let googleLifecycleListenersBound = false;
+  let googleRetryRenderTimer = null;
+
   function loadGoogleIdentityScript() {
     if (window.google && window.google.accounts && window.google.accounts.id) {
       return Promise.resolve();
     }
 
-    return new Promise(function (resolve, reject) {
+    if (googleIdentityScriptPromise) return googleIdentityScriptPromise;
+
+    googleIdentityScriptPromise = new Promise(function (resolve, reject) {
       const existing = document.querySelector('script[data-google-identity]');
       if (existing) {
         existing.addEventListener('load', resolve, { once: true });
@@ -1431,6 +1440,71 @@
       script.onerror = reject;
       document.head.appendChild(script);
     });
+
+    return googleIdentityScriptPromise;
+  }
+
+  function getGoogleAuthConfig() {
+    if (!googleAuthConfigPromise) {
+      googleAuthConfigPromise = fetch(apiBaseUrl + '/owner/google-config')
+        .then(function (response) {
+          return response.json().catch(function () { return {}; }).then(function (config) {
+            if (!response.ok || !config.enabled || !config.clientId) {
+              throw new Error('Google sign-in is not configured.');
+            }
+            return config;
+          });
+        });
+    }
+    return googleAuthConfigPromise;
+  }
+
+  function renderGoogleSignInButtons() {
+    const containers = Array.from(document.querySelectorAll('[data-google-signin]'));
+    if (!containers.length || !googleIdentityInitialized) return;
+
+    containers.forEach(function (container) {
+      container.replaceChildren();
+      const availableWidth = Math.floor(container.getBoundingClientRect().width || 400);
+      window.google.accounts.id.renderButton(container, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'continue_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+        width: Math.min(400, availableWidth),
+        click_listener: function () {
+          googleChooserAttemptActive = true;
+        },
+      });
+    });
+  }
+
+  function scheduleGoogleButtonRecovery() {
+    if (!googleIdentityInitialized) return;
+    window.clearTimeout(googleRetryRenderTimer);
+    googleRetryRenderTimer = window.setTimeout(function () {
+      renderGoogleSignInButtons();
+      googleChooserAttemptActive = false;
+    }, 250);
+  }
+
+  function bindGoogleSignInLifecycle() {
+    if (googleLifecycleListenersBound) return;
+    googleLifecycleListenersBound = true;
+
+    window.addEventListener('pageshow', function (event) {
+      if (event.persisted || googleChooserAttemptActive) scheduleGoogleButtonRecovery();
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && googleChooserAttemptActive) {
+        scheduleGoogleButtonRecovery();
+      }
+    });
+    window.addEventListener('focus', function () {
+      if (googleChooserAttemptActive) scheduleGoogleButtonRecovery();
+    });
   }
 
   async function initializeGoogleSignIn() {
@@ -1438,63 +1512,49 @@
     if (!containers.length) return;
 
     try {
-      const configResponse = await fetch(apiBaseUrl + '/owner/google-config');
-      const config = await configResponse.json().catch(function () { return {}; });
-      if (!configResponse.ok || !config.enabled || !config.clientId) {
-        throw new Error('Google sign-in is not configured.');
-      }
-
+      const config = await getGoogleAuthConfig();
       await loadGoogleIdentityScript();
-      window.google.accounts.id.initialize({
-        client_id: config.clientId,
-        callback: async function (googleResponse) {
-          const feedback = document.getElementById(page === 'dashboard' ? 'owner-auth-feedback' : 'form-feedback');
-          try {
-            const payload = await googleOwnerLogin(googleResponse.credential || '');
-            if (payload.token) {
-              sessionStorage.setItem(ownerJwtStorageKey, payload.token);
+      if (!googleIdentityInitialized) {
+        window.google.accounts.id.initialize({
+          client_id: config.clientId,
+          callback: async function (googleResponse) {
+            googleChooserAttemptActive = false;
+            const feedback = document.getElementById(page === 'dashboard' ? 'owner-auth-feedback' : 'form-feedback');
+            try {
+              const payload = await googleOwnerLogin(googleResponse.credential || '');
+              if (payload.token) sessionStorage.setItem(ownerJwtStorageKey, payload.token);
+              if (payload.data && payload.token) {
+                window.location.href = pagePaths.dashboard;
+                return;
+              }
+              sessionStorage.setItem('voma_google_account', JSON.stringify(payload.account || {}));
+              if (page === 'dashboard') {
+                window.location.href = pagePaths.addBusiness;
+                return;
+              }
+              const form = document.getElementById('business-form');
+              if (form && payload.account) {
+                if (form.elements.name && !form.elements.name.value) form.elements.name.value = payload.account.name || '';
+                if (form.elements.email) form.elements.email.value = payload.account.email || '';
+              }
+              if (feedback) {
+                feedback.hidden = false;
+                feedback.className = 'form-feedback success';
+                feedback.textContent = 'Google sign-in successful. Complete your business details to continue.';
+              }
+            } catch (error) {
+              if (feedback) {
+                feedback.hidden = false;
+                feedback.className = 'form-feedback error';
+                feedback.textContent = error.message || 'Something went wrong. Please try again.';
+              }
             }
-            if (payload.data && payload.token) {
-              window.location.href = pagePaths.dashboard;
-              return;
-            }
-
-            sessionStorage.setItem('voma_google_account', JSON.stringify(payload.account || {}));
-            if (page === 'dashboard') {
-              window.location.href = pagePaths.addBusiness;
-              return;
-            }
-
-            const form = document.getElementById('business-form');
-            if (form && payload.account) {
-              if (form.elements.name && !form.elements.name.value) form.elements.name.value = payload.account.name || '';
-              if (form.elements.email) form.elements.email.value = payload.account.email || '';
-            }
-            if (feedback) {
-              feedback.hidden = false;
-              feedback.className = 'form-feedback success';
-              feedback.textContent = 'Google sign-in successful. Complete your business details to continue.';
-            }
-          } catch (error) {
-            if (feedback) {
-              feedback.hidden = false;
-              feedback.className = 'form-feedback error';
-              feedback.textContent = error.message || 'Something went wrong. Please try again.';
-            }
-          }
-        },
-      });
-
-      containers.forEach(function (container) {
-        window.google.accounts.id.renderButton(container, {
-          type: 'standard',
-          theme: 'outline',
-          size: 'large',
-          text: 'continue_with',
-          shape: 'rectangular',
-          width: Math.min(360, container.clientWidth || 360),
+          },
         });
-      });
+        googleIdentityInitialized = true;
+      }
+      renderGoogleSignInButtons();
+      bindGoogleSignInLifecycle();
     } catch (error) {
       document.querySelectorAll('.google-auth-option').forEach(function (option) {
         option.hidden = true;
